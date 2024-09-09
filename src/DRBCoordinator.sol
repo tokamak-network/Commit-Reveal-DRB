@@ -21,8 +21,12 @@ contract DRBCoordinator is
     OptimismL1Fees
 {
     /// *** Functions ***
-    constructor(uint256 minDeposit) Ownable(msg.sender) {
+    constructor(
+        uint256 minDeposit,
+        uint256[3] memory compensations
+    ) Ownable(msg.sender) {
         s_minDeposit = minDeposit;
+        s_compensations = compensations;
         s_activatedOperators.push(address(0)); // dummy data
     }
 
@@ -33,6 +37,10 @@ contract DRBCoordinator is
     ) external payable nonReentrant returns (uint256 round) {
         require(s_activatedOperators.length > 2, NotEnoughActivatedOperators());
         uint256 cost = _calculateRequestPrice(callbackGasLimit, tx.gasprice);
+        uint256 minDeposit = _calculateMinDeposit(
+            callbackGasLimit,
+            tx.gasprice
+        );
         require(msg.value >= cost, InsufficientAmount());
         unchecked {
             round = s_nextRound++;
@@ -41,7 +49,8 @@ contract DRBCoordinator is
             consumer: msg.sender,
             requestedTime: block.timestamp,
             cost: msg.value,
-            callbackGasLimit: callbackGasLimit
+            callbackGasLimit: callbackGasLimit,
+            minDepositForOperator: minDeposit
         });
         address[] memory activatedOperators;
         s_activatedOperatorsAtRound[
@@ -53,13 +62,148 @@ contract DRBCoordinator is
             address operator = activatedOperators[i];
             s_activatedOperatorOrderAtRound[round][operator] = i;
             uint256 activatedOperatorIndex = s_activatedOperatorOrder[operator];
-            if ((s_depositAmount[operator] -= cost) < s_minDeposit)
+            if ((s_depositAmount[operator] -= minDeposit) < s_minDeposit)
                 _deactivate(activatedOperatorIndex, operator);
             unchecked {
                 ++i;
             }
         } while (i < activatedOperatorsLength);
         emit RandomNumberRequested(round);
+    }
+
+    /// @dev refund the cost of the request
+    /// @param round the request id
+    /// Note: condition for refund
+    /// 1. A few minutes have passed without any commit after random number requested
+    /// 2. CommitPhase is over and there are less than 2 commits
+    /// 3. RevealPhase is over and at least one person hasn't revealed.
+    function getRefund(uint256 round) external nonReentrant {
+        require(msg.sender == s_requestInfo[round].consumer, NotConsumer());
+        uint256 commitEndTime = s_roundInfo[round].commitEndTime;
+        uint256 activatedOperatorsAtRoundLength = s_activatedOperatorsAtRound[
+            round
+        ].length - 1;
+        uint256 commitLength = s_commits[round].length;
+        uint256 revealLength = s_reveals[round].length;
+        uint256 ruleNum = 3;
+        if (
+            block.timestamp > s_requestInfo[round].requestedTime + MAX_WAIT &&
+            commitLength == 0
+        ) ruleNum = 0;
+        else if (commitLength > 0) {
+            if (commitLength < 2 && block.timestamp > commitEndTime)
+                ruleNum = 1;
+            else if (
+                block.timestamp > commitEndTime + REVEAL_DURATION &&
+                revealLength < commitLength
+            ) ruleNum = 2;
+        }
+        require(ruleNum != 3, NotRefundable());
+
+        uint256 minDepositAtRound = s_requestInfo[round].minDepositForOperator;
+        uint256 compensateAmount = s_compensations[ruleNum];
+        uint256 operatorReturnAmount = s_compensations[2] - compensateAmount;
+        uint256 minDepositToBeOperator = s_minDeposit;
+
+        if (ruleNum == 0) {
+            uint256 rest = activatedOperatorsAtRoundLength *
+                (minDepositAtRound - operatorReturnAmount);
+            for (
+                uint256 i = 1;
+                i <= activatedOperatorsAtRoundLength;
+                i = _unchecked_inc(i)
+            ) {
+                address operator = s_activatedOperatorsAtRound[round][i];
+                if (
+                    (s_depositAmount[operator] += operatorReturnAmount) >=
+                    minDepositToBeOperator &&
+                    s_activatedOperatorOrder[operator] == 0
+                ) {
+                    _activate(operator);
+                }
+            }
+            payable(msg.sender).transfer(rest + s_requestInfo[round].cost);
+        } else {
+            uint256 refundTxCostAndCompAmount = _calculateGetRefundCost(
+                tx.gasprice
+            ) + compensateAmount;
+            uint256 refundAmount = s_requestInfo[round].cost +
+                refundTxCostAndCompAmount;
+            if (ruleNum == 1) {
+                uint256 uncommitedLength = activatedOperatorsAtRoundLength -
+                    commitLength;
+                uint256 rest = uncommitedLength *
+                    (minDepositAtRound - operatorReturnAmount) -
+                    refundTxCostAndCompAmount;
+                uint256 distributedSlashedAmount = rest / commitLength;
+                uint256 returnAmountForCommitted = minDepositAtRound +
+                    distributedSlashedAmount;
+                for (
+                    uint256 i = 1;
+                    i <= activatedOperatorsAtRoundLength;
+                    i = _unchecked_inc(i)
+                ) {
+                    address operator = s_activatedOperatorsAtRound[round][i];
+                    uint256 activatedOperatorIndex = s_activatedOperatorOrder[
+                        operator
+                    ];
+                    bool isCommitted = s_commitOrder[round][operator] != 0;
+                    if (isCommitted) {
+                        uint256 updatedDepositAmount = s_depositAmount[
+                            operator
+                        ] += returnAmountForCommitted;
+                        if (
+                            activatedOperatorIndex == 0 &&
+                            updatedDepositAmount >= minDepositToBeOperator
+                        ) {
+                            _activate(operator);
+                        }
+                    } else {
+                        uint256 updatedDepositAmount = s_depositAmount[
+                            operator
+                        ] += operatorReturnAmount;
+                        if (
+                            activatedOperatorIndex == 0 &&
+                            updatedDepositAmount >= minDepositToBeOperator
+                        ) {
+                            _activate(operator);
+                        }
+                    }
+                }
+                payable(msg.sender).transfer(refundAmount);
+            } else {
+                uint256 unrevealedLength = commitLength - revealLength;
+                uint256 rest = unrevealedLength *
+                    minDepositAtRound -
+                    refundTxCostAndCompAmount;
+                uint256 distributedSlashedAmount = rest / revealLength;
+                uint256 returnAmountForRevealed = minDepositAtRound +
+                    distributedSlashedAmount;
+                for (
+                    uint256 i = 1;
+                    i <= activatedOperatorsAtRoundLength;
+                    i = _unchecked_inc(i)
+                ) {
+                    address operator = s_activatedOperatorsAtRound[round][i];
+                    uint256 activatedOperatorIndex = s_activatedOperatorOrder[
+                        operator
+                    ];
+                    bool isRevealed = s_revealOrder[round][operator] != 0;
+                    if (isRevealed) {
+                        uint256 updatedDepositAmount = s_depositAmount[
+                            operator
+                        ] += returnAmountForRevealed;
+                        if (
+                            activatedOperatorIndex == 0 &&
+                            updatedDepositAmount >= minDepositToBeOperator
+                        ) {
+                            _activate(operator);
+                        }
+                    }
+                }
+                payable(msg.sender).transfer(refundAmount);
+            }
+        }
     }
 
     function calculateRequestPrice(
@@ -87,6 +231,27 @@ contract DRBCoordinator is
             _getL1CostWeiForCalldataSize(CALLDATA_SIZE_BYTES_PER_ROUND);
     }
 
+    function _calculateMinDeposit(
+        uint256 callbackGasLimit,
+        uint256 gasPrice
+    ) private view returns (uint256) {
+        return
+            (((gasPrice * (callbackGasLimit + L2_MIN_DEPOSIT_GASUSED)) *
+                (s_premiumPercentage + 100)) / 100) +
+            s_flatFee +
+            _getL1CostWeiForCalldataSize(L2_MIN_DEPOSIT_CALLDATA_SIZE_BYTES) +
+            s_compensations[2];
+    }
+
+    function _calculateGetRefundCost(
+        uint256 gasPrice
+    ) private view returns (uint256) {
+        return
+            (((gasPrice * L2_GETREFUND_GASUSED) * (s_premiumPercentage + 100)) /
+                100) +
+            _getL1CostWeiForCalldataSize(L2_GETREFUND_CALLDATA_SIZE_BYTES);
+    }
+
     /// ***
     /// ** Operator(Node) Interface **
 
@@ -109,7 +274,11 @@ contract DRBCoordinator is
             require(s_commitOrder[round][msg.sender] == 0, AlreadyCommitted());
         }
         s_commits[round].push(a);
-        s_commitOrder[round][msg.sender] = s_commits[round].length;
+        uint256 commitLength = s_commits[round].length;
+        s_commitOrder[round][msg.sender] = commitLength;
+        if (commitLength == s_activatedOperatorsAtRound[round].length - 1) {
+            s_roundInfo[round].commitEndTime = block.timestamp;
+        }
     }
 
     function reveal(uint256 round, bytes32 s) external {
@@ -150,7 +319,7 @@ contract DRBCoordinator is
             uint256 cost = s_requestInfo[round].cost;
             uint256 dividedReward = cost /
                 activatedOperatorsAtRoundLength +
-                cost;
+                s_requestInfo[round].minDepositForOperator;
             for (
                 uint256 i = 1;
                 i < s_activatedOperatorsAtRound[round].length;
@@ -163,44 +332,6 @@ contract DRBCoordinator is
                 uint256 updatedDepositAmount = s_depositAmount[
                     operator
                 ] += dividedReward;
-                if (
-                    activatedOperatorIndex == 0 &&
-                    updatedDepositAmount >= s_minDeposit
-                ) {
-                    _activate(operator);
-                }
-            }
-        }
-    }
-
-    function slashUncommittedOperators(uint256 round) external {
-        uint256 activatedOperatorsAtRoundLength = s_activatedOperatorsAtRound[
-            round
-        ].length - 1;
-        require(
-            block.timestamp > s_roundInfo[round].commitEndTime &&
-                s_commits[round].length < activatedOperatorsAtRoundLength,
-            NotSlashingCondition()
-        );
-        uint256 cost = s_requestInfo[round].cost;
-        uint256 unCommittedCount = activatedOperatorsAtRoundLength -
-            s_commits[round].length;
-        uint256 dividedPenaltyAndFrozenDeposit = ((cost * unCommittedCount) /
-            (activatedOperatorsAtRoundLength - unCommittedCount)) + cost;
-        for (
-            uint256 i = 1;
-            i <= activatedOperatorsAtRoundLength;
-            i = _unchecked_inc(i)
-        ) {
-            address operator = s_activatedOperatorsAtRound[round][i];
-            uint256 commitOrder = s_commitOrder[round][operator];
-            if (commitOrder != 0) {
-                uint256 activatedOperatorIndex = s_activatedOperatorOrder[
-                    operator
-                ];
-                uint256 updatedDepositAmount = s_depositAmount[
-                    operator
-                ] += dividedPenaltyAndFrozenDeposit;
                 if (
                     activatedOperatorIndex == 0 &&
                     updatedDepositAmount >= s_minDeposit
@@ -335,5 +466,27 @@ contract DRBCoordinator is
         unchecked {
             return a + 1;
         }
+    }
+
+    /// ***
+    /// ** Owner Interface **
+    function setPremiumPercentage(
+        uint256 premiumPercentage
+    ) external onlyOwner {
+        s_premiumPercentage = premiumPercentage;
+    }
+
+    function setFlatFee(uint256 flatFee) external onlyOwner {
+        s_flatFee = flatFee;
+    }
+
+    function setMinDeposit(uint256 minDeposit) external onlyOwner {
+        s_minDeposit = minDeposit;
+    }
+
+    function setCompensations(
+        uint256[3] memory compensations
+    ) external onlyOwner {
+        s_compensations = compensations;
     }
 }

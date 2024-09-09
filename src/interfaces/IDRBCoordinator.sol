@@ -12,4 +12,6 @@ interface IDRBCoordinator {
     function requestRandomNumber(
         uint32 callbackGasLimit
     ) external payable returns (uint256);
+
+    function getRefund(uint256 requestId) external;
 }

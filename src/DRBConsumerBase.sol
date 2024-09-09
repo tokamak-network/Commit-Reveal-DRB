@@ -22,6 +22,8 @@ abstract contract DRBConsumerBase {
         i_drbCoordinator = IDRBCoordinator(rngCoordinator);
     }
 
+    receive() external payable {}
+
     /**
      * @return requestId The ID of the request
      * @dev Request Randomness to the Coordinator
@@ -59,5 +61,9 @@ abstract contract DRBConsumerBase {
             OnlyCoordinatorCanFulfill(msg.sender, address(i_drbCoordinator))
         );
         fulfillRandomWords(requestId, randomNumber);
+    }
+
+    function getRefund(uint256 requestId) external {
+        i_drbCoordinator.getRefund(requestId);
     }
 }
