@@ -69,7 +69,7 @@ contract DRBCoordinator is
                 ++i;
             }
         } while (i < activatedOperatorsLength);
-        emit RandomNumberRequested(round);
+        emit RandomNumberRequested(round, activatedOperators);
     }
 
     /// @dev refund the cost of the request
@@ -205,6 +205,7 @@ contract DRBCoordinator is
                 payable(msg.sender).transfer(refundAmount);
             }
         }
+        emit Refund(round);
     }
 
     function calculateRequestPrice(
@@ -280,6 +281,7 @@ contract DRBCoordinator is
         if (commitLength == s_activatedOperatorsAtRound[round].length - 1) {
             s_roundInfo[round].commitEndTime = block.timestamp;
         }
+        emit Commit(msg.sender, round);
     }
 
     function reveal(uint256 round, bytes32 s) external {
@@ -342,6 +344,7 @@ contract DRBCoordinator is
                 }
             }
         }
+        emit Reveal(msg.sender, round);
     }
 
     function deposit() external payable nonReentrant {

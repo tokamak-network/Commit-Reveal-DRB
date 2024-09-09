@@ -73,7 +73,10 @@ contract DRBCoordinatorStorage {
     error NotConsumer();
 
     /// *** Events ***
-    event RandomNumberRequested(uint256 round);
+    event RandomNumberRequested(uint256 round, address[] activatedOperators);
+    event Commit(address operator, uint256 round);
+    event Reveal(address operator, uint256 round);
+    event Refund(uint256 round);
     event Activated(address operator);
     event DeActivated(address operator);
 
