@@ -26,6 +26,7 @@ contract DRBCoordinator is
         uint256[3] memory compensations
     ) Ownable(msg.sender) {
         s_minDeposit = minDeposit;
+        s_flatFee = 0.01 ether;
         s_compensations = compensations;
         s_activatedOperators.push(address(0)); // dummy data
     }
@@ -289,8 +290,9 @@ contract DRBCoordinator is
         uint256 activatedOperatorsAtRoundLength = s_activatedOperatorsAtRound[
             round
         ].length - 1;
+        uint256 commitLength = s_commits[round].length;
         require(
-            activatedOperatorsAtRoundLength == s_commits[round].length ||
+            activatedOperatorsAtRoundLength == commitLength ||
                 (block.timestamp > commitEndTime &&
                     block.timestamp <= commitEndTime + REVEAL_DURATION),
             NotRevealPhase()
@@ -301,7 +303,7 @@ contract DRBCoordinator is
         );
         s_reveals[round].push(s);
         s_revealOrder[round][msg.sender] = s_reveals[round].length;
-        if (s_reveals[round].length == activatedOperatorsAtRoundLength) {
+        if (s_reveals[round].length == commitLength) {
             uint256 randomNumber = uint256(
                 keccak256(abi.encodePacked(s_reveals[round]))
             );

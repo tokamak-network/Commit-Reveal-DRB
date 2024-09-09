@@ -114,6 +114,15 @@ contract DRBCoordinatorStorage {
         return s_activatedOperators;
     }
 
+    function getActivatedOperatorsLength() external view returns (uint256) {
+        return s_activatedOperators.length - 1;
+    }
+
+    /// ** s_minDeposit
+    function getMinDeposit() external view returns (uint256) {
+        return s_minDeposit;
+    }
+
     /// ** s_requestInfo
     function getRequestInfo(
         uint256 round

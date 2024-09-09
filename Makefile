@@ -14,7 +14,7 @@
 
 -include .env
 
-.PHONY: all test clean deploy help install snapshot format anvil
+.PHONY: set-l1fee-mode all test clean deploy help install snapshot format anvil
 
 DEFAULT_ANVIL_KEY := 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
 
@@ -47,45 +47,47 @@ anvil :; anvil -m 'test test test test test test test test test test test junk' 
 
 NETWORK_ARGS := --rpc-url http://localhost:8545 --private-key $(DEFAULT_ANVIL_KEY) --broadcast
 
-ifeq ($(findstring --network sepolia,$(ARGS)),--network sepolia)
-	NETWORK_ARGS := --rpc-url $(SEPOLIA_RPC_URL) --private-key $(PRIVATE_KEY) --broadcast --verify --etherscan-api-key $(ETHERSCAN_API_KEY) -vvvv
-endif
-ifeq ($(findstring --network titan,$(ARGS)),--network titan)
-	NETWORK_ARGS := --rpc-url $(TITAN_RPC_URL) --private-key $(PRIVATE_KEY) --broadcast --verify --etherscan-api-key $(ETHERSCAN_API_KEY) -vvvv
-endif
-ifeq ($(findstring --network titansepolia,$(ARGS)),--network titansepolia)
-	NETWORK_ARGS := --rpc-url $(TITAN_SEPOLIA_URL) --private-key $(PRIVATE_KEY) --broadcast --verify --etherscan-api-key $(ETHERSCAN_API_KEY) -vvvv
-endif
-ifeq ($(findstring --network opsepolia,$(ARGS)),--network opsepolia)
-	NETWORK_ARGS := --rpc-url $(OP_SEPOLIA_RPC_URL) --private-key $(PRIVATE_KEY) --broadcast --verify --etherscan-api-key $(OP_ETHERSCAN_API_KEY) -vvvv
-endif
 ifeq ($(findstring --network thanossepolia,$(ARGS)), --network thanossepolia)
-	NETWORK_ARGS := --rpc-url $(THANOS_SEPOLIA_URL) --private-key $(PRIVATE_KEY) --broadcast --verify --verifier blockscout --verifier-url https://explorer.thanos-sepolia.tokamak.network/api --etherscan-api-key $(ETHERSCAN_API_KEY) -vv
+	NETWORK_ARGS := --rpc-url $(THANOS_SEPOLIA_URL) --private-key $(PRIVATE_KEY) --broadcast --verify --verifier blockscout --verifier-url https://explorer.thanos-sepolia.tokamak.network/api --etherscan-api-key 11 -vv
 endif
 
-deploy: deploy-rng deploy-consumer-example deploy-random-day
+
+deploy: deploy-drb deploy-consumer-example set-l1fee-mode
 # make deploy ARGS="--network thanossepolia"
 
-deploy-rng:
-	@forge script script/DeployRNGCoordinatorPoF.s.sol:DeployRNGCoordinatorPoF $(NETWORK_ARGS)
+deploy-drb:
+	@forge script script/DeployDRBCoordinator.s.sol:DeployDRBCoordinator $(NETWORK_ARGS)
 
 deploy-consumer-example:
 	@forge script script/DeployConsumerExample.s.sol:DeployConsumerExample $(NETWORK_ARGS)
 
-deploy-random-day:
-	@forge script script/DeployRandomDay.s.sol:DeployRandomDay $(NETWORK_ARGS)
+set-l1fee-mode:
+	@forge script script/Interactions.s.sol:SetL1FeeCalculation $(NETWORK_ARGS)
 
-five-operators-deposit-anvil:
-	@forge script script/Interactions.s.sol:FiveOperatorsDepositAnvil $(NETWORK_ARGS)
+three-deposit-activate:
+	@forge script script/Interactions.s.sol:ThreeDepositAndActivate $(NETWORK_ARGS)
 
-start-randomday-event:
-	@forge script script/Interactions.s.sol:StartRandomdayEvent $(NETWORK_ARGS)
+request-random:
+	@forge script script/Interactions.s.sol:ConsumerRequestRandomNumber $(NETWORK_ARGS)
 
-consumer-example-request:
-	@forge script script/Interactions.s.sol:ConsumerExampleRequestWord $(NETWORK_ARGS)
+ROUND := $()
 
-randomday-request:
-	@forge script script/Interactions.s.sol:RandomDayRequestWord $(NETWORK_ARGS)
+commit:
+	@forge script script/Interactions.s.sol:Commit $(NETWORK_ARGS) --sig "run(uint256)" $(ROUND)
+
+reveal:
+	@forge script script/Interactions.s.sol:Reveal $(NETWORK_ARGS) --sig "run(uint256)" $(ROUND)
+
+SECOND := $()
+
+increase:
+	@forge script script/Interactions.s.sol:IncreaseTime $(NETWORK_ARGS) --sig "run(uint256)" $(SECOND)
+
+refund:
+	@forge script script/Interactions.s.sol:Refund $(NETWORK_ARGS) --sig "run(uint256)" $(ROUND)
+
+
+
 
 ROUND_ARG := $()
 
