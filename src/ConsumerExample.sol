@@ -14,8 +14,6 @@ contract ConsumerExample is DRBConsumerBase {
 
     // past requests Id.
     uint256[] public requestIds;
-    uint256 public lastRequestId;
-
     uint32 public constant CALLBACK_GAS_LIMIT = 83011;
 
     constructor(address coordinator) DRBConsumerBase(coordinator) {}
@@ -24,7 +22,6 @@ contract ConsumerExample is DRBConsumerBase {
         uint256 requestId = _requestRandomNumber(CALLBACK_GAS_LIMIT);
         s_requests[requestId].requested = true;
         requestIds.push(requestId);
-        lastRequestId = requestId;
     }
 
     function fulfillRandomWords(
@@ -49,6 +46,10 @@ contract ConsumerExample is DRBConsumerBase {
 
     function totalRequests() external view returns(uint256 requestCount) {
         requestCount = requestIds.length;
+    }
+
+    function lastRequestId() external view returns(uint256 requestId) {
+        requestId = requestIds[requestIds.length - 1];
     }
 
     function withdraw() external {
