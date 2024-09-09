@@ -28,7 +28,9 @@ contract ConsumerExample is DRBConsumerBase {
         uint256 requestId,
         uint256 hashedOmegaVal
     ) internal override {
-        require(s_requests[requestId].requested, "Request not made");
+        if(!s_requests[requestId].requested) {
+            revert InvalidRequest(requestId);
+        }
         s_requests[requestId].fulfilled = true;
         s_requests[requestId].randomNumber = hashedOmegaVal;
     }

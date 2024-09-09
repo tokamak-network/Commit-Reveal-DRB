@@ -11,6 +11,7 @@ import {IDRBCoordinator} from "./interfaces/IDRBCoordinator.sol";
  */
 abstract contract DRBConsumerBase {
     error OnlyCoordinatorCanFulfill(address have, address want);
+    error InvalidRequest(uint256 requestId);
 
     /// @dev The RNGCoordinator contract
     IDRBCoordinator internal immutable i_drbCoordinator;
