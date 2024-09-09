@@ -53,8 +53,4 @@ contract ConsumerExample is DRBConsumerBase {
     function lastRequestId() external view returns(uint256 requestId) {
         requestId = requestIds[requestIds.length - 1];
     }
-
-    function withdraw() external {
-        payable(msg.sender).transfer(address(this).balance);
-    }
 }
