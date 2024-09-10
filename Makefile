@@ -100,8 +100,14 @@ re-request-round:
 
 
 verfy-drb:
-	@CONSTRUCTOR_ARGS=$$(cast abi-encode "constructor(uint256,uint256[3])" 1000000000000000000 "[200000000000000000,300000000000000000,400000000000000000]") \
-	forge verify-contract --constructor-args CONSTRUCTOR_ARGS --verifier blockscout --verifier-url https://explorer.thanos-sepolia.tokamak.network/api --rpc-url $(THANOS_SEPOLIA_URL) 0xaCDfd9d1a7265c95d07Ec972D9E6Dab7E778a1e5 DRBCoordinator
+	@CONSTRUCTOR_ARGS=$$(cast abi-encode "constructor(uint256,uint256,uint256[3])" 1000000000000000000 10000000000000000 "[200000000000000000,300000000000000000,400000000000000000]") \
+	forge verify-contract --constructor-args CONSTRUCTOR_ARGS --verifier blockscout --verifier-url https://explorer.thanos-sepolia.tokamak.network/api --rpc-url $(THANOS_SEPOLIA_URL) $(ADDRESS) DRBCoordinator
+
+DRB := $()
+
+verify-consumer-example:
+	@CONSTRUCTOR_ARGS=$$(cast abi-encode "constructor(address)" 0xd7142b66a9804315eA8653bF9Af9bBaB958aa5E6) \
+	forge verify-contract --constructor-args CONSTRUCTOR_ARGS --verifier blockscout --verifier-url https://explorer.thanos-sepolia.tokamak.network/api --rpc-url $(THANOS_SEPOLIA_URL) $(ADDRESS) DRBCoordinator
 
 #################### * test ####################
 
