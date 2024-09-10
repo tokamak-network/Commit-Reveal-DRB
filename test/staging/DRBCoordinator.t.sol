@@ -12,8 +12,13 @@ contract DRBCoordinatorTest is BaseTest {
     address[] s_operatorAddresses;
     address[] s_consumerAddresses;
     ConsumerExample s_consumerExample;
-    uint256 s_minDeposit = 10 ether;
+    uint256 s_maxLeastDepositForOneRound = 10 ether;
     uint256[3] s_compensations = [2 ether, 3 ether, 4 ether];
+
+    function mine() public {
+        vm.warp(block.timestamp + 1);
+        vm.roll(block.number + 1);
+    }
 
     function setUp() public override {
         BaseTest.setUp(); // Start Prank
@@ -25,7 +30,11 @@ contract DRBCoordinatorTest is BaseTest {
             vm.deal(s_operatorAddresses[i], 10000 ether);
             vm.deal(s_consumerAddresses[i], 10000 ether);
         }
-        s_drbCoordinator = new DRBCoordinator(s_minDeposit, s_compensations);
+        s_drbCoordinator = new DRBCoordinator(
+            s_maxLeastDepositForOneRound,
+            0.01 ether,
+            s_compensations
+        );
         s_consumerExample = new ConsumerExample(address(s_drbCoordinator));
 
         // ** set L1
@@ -34,8 +43,11 @@ contract DRBCoordinatorTest is BaseTest {
 
     function deposit(address operator) public {
         vm.startPrank(operator);
-        s_drbCoordinator.deposit{value: s_minDeposit}();
-        assertEq(s_drbCoordinator.getDepositAmount(operator), s_minDeposit);
+        s_drbCoordinator.deposit{value: s_maxLeastDepositForOneRound}();
+        assertEq(
+            s_drbCoordinator.getDepositAmount(operator),
+            s_maxLeastDepositForOneRound
+        );
         vm.stopPrank();
     }
 
@@ -160,7 +172,7 @@ contract DRBCoordinatorTest is BaseTest {
             uint256 depositAmount = s_drbCoordinator.getDepositAmount(
                 s_operatorAddresses[i]
             );
-            if (depositAmount < s_minDeposit) {
+            if (depositAmount < s_maxLeastDepositForOneRound) {
                 assertEq(
                     s_drbCoordinator.getActivatedOperatorIndex(
                         s_operatorAddresses[i]
@@ -213,6 +225,7 @@ contract DRBCoordinatorTest is BaseTest {
             vm.startPrank(operator);
             s_drbCoordinator.commit(requestId, keccak256(abi.encodePacked(i)));
             vm.stopPrank();
+            mine();
 
             uint256 commitOrder = s_drbCoordinator.getCommitOrder(
                 requestId,
@@ -228,6 +241,7 @@ contract DRBCoordinatorTest is BaseTest {
         assertEq(roundInfo.fulfillSucceeded, false);
 
         /// ** 3. reveal
+        mine();
         bytes32[] memory reveals = new bytes32[](s_operatorAddresses.length);
         for (uint256 i; i < s_operatorAddresses.length; i++) {
             address operator = s_operatorAddresses[i];
@@ -254,7 +268,7 @@ contract DRBCoordinatorTest is BaseTest {
             uint256 depositAmount = s_drbCoordinator.getDepositAmount(
                 s_operatorAddresses[i]
             );
-            if (depositAmount < s_minDeposit) {
+            if (depositAmount < s_maxLeastDepositForOneRound) {
                 assertEq(
                     s_drbCoordinator.getActivatedOperatorIndex(
                         s_operatorAddresses[i]
@@ -281,6 +295,7 @@ contract DRBCoordinatorTest is BaseTest {
             s_drbCoordinator.commit(requestId, keccak256(abi.encodePacked(i)));
             vm.stopPrank();
         }
+        mine();
         for (uint256 i; i < s_operatorAddresses.length; i++) {
             address operator = s_operatorAddresses[i];
             vm.startPrank(operator);
@@ -298,7 +313,6 @@ contract DRBCoordinatorTest is BaseTest {
 
     /// rule 1
     function test_RefundRule1() public make5Activate {
-        uint256 requestId = s_consumerExample.lastRequestId();
         uint256[5] memory depositAmountsBefore;
         for (uint256 i; i < s_operatorAddresses.length; i++) {
             depositAmountsBefore[i] = s_drbCoordinator.getDepositAmount(
@@ -306,10 +320,12 @@ contract DRBCoordinatorTest is BaseTest {
             );
         }
         requestRandomNumber();
+        uint256 requestId = s_consumerExample.lastRequestId();
 
         // ** increase time
         (uint256 maxWait, , ) = s_drbCoordinator.getDurations();
         vm.warp(block.timestamp + maxWait + 1);
+        vm.roll(block.number + 1);
 
         // ** refund
         s_consumerExample.getRefund(requestId);
@@ -343,7 +359,7 @@ contract DRBCoordinatorTest is BaseTest {
             uint256 updatedDepositAmount = depositAmountsBefore[i] -
                 slashedAmount;
             assertEq(depositAmountsAfter[i], updatedDepositAmount);
-            if (updatedDepositAmount < s_minDeposit) {
+            if (updatedDepositAmount < s_maxLeastDepositForOneRound) {
                 assertEq(
                     s_drbCoordinator.getActivatedOperatorIndex(
                         s_operatorAddresses[i]
@@ -365,7 +381,6 @@ contract DRBCoordinatorTest is BaseTest {
 
     /// rule 2
     function test_RefundRule2() public make5Activate {
-        uint256 requestId = s_consumerExample.lastRequestId();
         uint256[5] memory depositAmountsBefore;
         for (uint256 i; i < s_operatorAddresses.length; i++) {
             depositAmountsBefore[i] = s_drbCoordinator.getDepositAmount(
@@ -373,6 +388,7 @@ contract DRBCoordinatorTest is BaseTest {
             );
         }
         requestRandomNumber();
+        uint256 requestId = s_consumerExample.lastRequestId();
 
         // ** 1 commit
         address operator = s_operatorAddresses[0];
@@ -380,10 +396,12 @@ contract DRBCoordinatorTest is BaseTest {
         uint256 c = 0;
         s_drbCoordinator.commit(requestId, keccak256(abi.encodePacked(c)));
         vm.stopPrank();
+        mine();
 
         // ** increase time
         (, uint256 commitDuration, ) = s_drbCoordinator.getDurations();
         vm.warp(block.timestamp + commitDuration + 1);
+        vm.roll(block.number + 1);
 
         // ** balance before
         uint256 balanceBefore = address(s_consumerExample).balance;
@@ -436,7 +454,7 @@ contract DRBCoordinatorTest is BaseTest {
                     updatedDepositAmount,
                     "committed operator balance"
                 );
-                if (updatedDepositAmount < s_minDeposit) {
+                if (updatedDepositAmount < s_maxLeastDepositForOneRound) {
                     assertEq(
                         s_drbCoordinator.getActivatedOperatorIndex(
                             s_operatorAddresses[i]
@@ -459,7 +477,7 @@ contract DRBCoordinatorTest is BaseTest {
                     updatedDepositAmount,
                     "uncommitted operator balance"
                 );
-                if (updatedDepositAmount < s_minDeposit) {
+                if (updatedDepositAmount < s_maxLeastDepositForOneRound) {
                     assertEq(
                         s_drbCoordinator.getActivatedOperatorIndex(
                             s_operatorAddresses[i]
@@ -482,7 +500,6 @@ contract DRBCoordinatorTest is BaseTest {
 
     /// rule 3
     function test_RefundRule3() public make5Activate {
-        uint256 requestId = s_consumerExample.lastRequestId();
         uint256[5] memory depositAmountsBefore;
         for (uint256 i; i < s_operatorAddresses.length; i++) {
             depositAmountsBefore[i] = s_drbCoordinator.getDepositAmount(
@@ -490,7 +507,7 @@ contract DRBCoordinatorTest is BaseTest {
             );
         }
         requestRandomNumber();
-
+        uint256 requestId = s_consumerExample.lastRequestId();
         address operator;
 
         // ** commits
@@ -500,6 +517,7 @@ contract DRBCoordinatorTest is BaseTest {
             s_drbCoordinator.commit(requestId, keccak256(abi.encodePacked(i)));
             vm.stopPrank();
         }
+        mine();
 
         // ** 1 reveal
         operator = s_operatorAddresses[0];
@@ -510,6 +528,7 @@ contract DRBCoordinatorTest is BaseTest {
         // ** increase time
         (, , uint256 revealDuration) = s_drbCoordinator.getDurations();
         vm.warp(block.timestamp + revealDuration + 1);
+        vm.roll(block.number + 1);
 
         // ** balance before
         uint256 balanceBefore = address(s_consumerExample).balance;
@@ -561,7 +580,7 @@ contract DRBCoordinatorTest is BaseTest {
                     updatedDepositAmount,
                     "revealed operator balance"
                 );
-                if (updatedDepositAmount < s_minDeposit) {
+                if (updatedDepositAmount < s_maxLeastDepositForOneRound) {
                     assertEq(
                         s_drbCoordinator.getActivatedOperatorIndex(
                             s_operatorAddresses[i]
@@ -584,7 +603,7 @@ contract DRBCoordinatorTest is BaseTest {
                     updatedDepositAmount,
                     "unrevealed operator balance"
                 );
-                if (updatedDepositAmount < s_minDeposit) {
+                if (updatedDepositAmount < s_maxLeastDepositForOneRound) {
                     assertEq(
                         s_drbCoordinator.getActivatedOperatorIndex(
                             s_operatorAddresses[i]
