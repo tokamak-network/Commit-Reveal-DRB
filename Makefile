@@ -70,6 +70,10 @@ three-deposit-activate:
 request-random:
 	@forge script script/Interactions.s.sol:ConsumerRequestRandomNumber $(NETWORK_ARGS)
 
+ADDRESS := $()
+request-random-with-address:
+	@forge script script/Interactions.s.sol:ConsumerRequestRandomNumber $(NETWORK_ARGS) --sig "run(address)" $(ADDRESS)
+
 ROUND := $()
 
 commit:
@@ -94,10 +98,10 @@ ROUND_ARG := $()
 re-request-round:
 	@forge script script/Interactions.s.sol:ReRequestRandomWord $(NETWORK_ARGS)
 
-verify-randomday:
-	@CONSTRUCTOR_ARGS=$$(cast abi-encode "constructor(address,address)" 0x819B9E61F02Bdb8841e90Af300d5064AD1a30D84 0x2b69EAB0d5e93edcc9F9c0d0acEc7f2F4f273cBb) \
-	forge verify-contract --constructor-args CONSTRUCTOR_ARGS --verifier blockscout --verifier-url https://explorer.thanos-sepolia.tokamak.network/api --rpc-url $(THANOS_SEPOLIA_URL) 0xb215a3844823B8f3115dE7c39E00eCF6A7275b57 RandomDay
 
+verfy-drb:
+	@CONSTRUCTOR_ARGS=$$(cast abi-encode "constructor(uint256,uint256[3])" 1000000000000000000 "[200000000000000000,300000000000000000,400000000000000000]") \
+	forge verify-contract --constructor-args CONSTRUCTOR_ARGS --verifier blockscout --verifier-url https://explorer.thanos-sepolia.tokamak.network/api --rpc-url $(THANOS_SEPOLIA_URL) 0xaCDfd9d1a7265c95d07Ec972D9E6Dab7E778a1e5 DRBCoordinator
 
 #################### * test ####################
 

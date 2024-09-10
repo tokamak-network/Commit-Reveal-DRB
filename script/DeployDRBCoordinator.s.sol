@@ -15,6 +15,7 @@ contract DeployDRBCoordinator is Script {
         vm.startBroadcast();
         DRBCoordinator coordinator = new DRBCoordinator(
             minDeposit,
+            0.01 ether,
             compensations
         );
         vm.stopBroadcast();

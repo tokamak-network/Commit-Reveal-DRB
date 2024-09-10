@@ -101,6 +101,23 @@ contract ConsumerRequestRandomNumber is Utils {
         uint256 lastRequestId = consumerExample.lastRequestId();
         console2.log("requested ID:", lastRequestId);
     }
+
+    function run(address consumerExampleAddress) public {
+        (DRBCoordinator drbCoordinator, ) = getContracts();
+        ConsumerExample consumerExample = ConsumerExample(
+            payable(consumerExampleAddress)
+        );
+        uint256 callbackGasLimit = consumerExample.CALLBACK_GAS_LIMIT();
+        uint256 cost = drbCoordinator.estimateRequestPrice(
+            callbackGasLimit,
+            tx.gasprice
+        );
+        vm.startBroadcast();
+        consumerExample.requestRandomNumber{value: cost}();
+        vm.stopBroadcast();
+        uint256 lastRequestId = consumerExample.lastRequestId();
+        console2.log("requested ID:", lastRequestId);
+    }
 }
 
 contract Commit is Utils {
