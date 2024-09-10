@@ -28,7 +28,7 @@ contract ConsumerExample is DRBConsumerBase {
         uint256 requestId,
         uint256 hashedOmegaVal
     ) internal override {
-        if(!s_requests[requestId].requested) {
+        if (!s_requests[requestId].requested) {
             revert InvalidRequest(requestId);
         }
         s_requests[requestId].fulfilled = true;
@@ -46,11 +46,13 @@ contract ConsumerExample is DRBConsumerBase {
         return (request.requested, request.fulfilled, request.randomNumber);
     }
 
-    function totalRequests() external view returns(uint256 requestCount) {
+    function totalRequests() external view returns (uint256 requestCount) {
         requestCount = requestIds.length;
     }
 
-    function lastRequestId() external view returns(uint256 requestId) {
-        requestId = requestIds[requestIds.length - 1];
+    function lastRequestId() external view returns (uint256 requestId) {
+        requestId = requestIds.length == 0
+            ? 0
+            : requestIds[requestIds.length - 1];
     }
 }
