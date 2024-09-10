@@ -9,6 +9,7 @@ contract DRBCoordinatorStorage {
         uint256 cost;
         uint256 callbackGasLimit;
         uint256 minDepositForOperator;
+        uint256 refundCost;
     }
 
     struct RoundInfo {
@@ -27,6 +28,8 @@ contract DRBCoordinatorStorage {
     mapping(uint256 round => bytes32[] commits) internal s_commits;
     mapping(uint256 round => bytes32[] reveals) internal s_reveals;
 
+    mapping(address operator => bool isForceDeactivated)
+        internal s_forceDeactivated;
     mapping(address operator => uint256 depositAmount) internal s_depositAmount;
     mapping(address operator => uint256) internal s_activatedOperatorOrder;
     mapping(uint256 round => mapping(address operator => uint256))
@@ -35,22 +38,23 @@ contract DRBCoordinatorStorage {
         internal s_revealOrder;
     address[] internal s_activatedOperators;
     uint256[3] internal s_compensations;
+    uint256[2] internal s_returnAmountForOperators;
     uint256 internal s_currentRound;
     uint256 internal s_nextRound;
     uint256 internal s_premiumPercentage;
     uint256 internal s_flatFee;
-    uint256 internal s_minDeposit;
+    uint256 internal s_maxLeastDepositForOneRound;
 
     /// *** Constants ***
     uint256 internal constant MAX_WAIT = 2 minutes;
     uint256 internal constant COMMIT_DURATION = 2 minutes;
     uint256 internal constant REVEAL_DURATION = 4 minutes;
-    uint256 internal constant CALLDATA_SIZE_BYTES_PER_ROUND = 3200;
-    uint256 internal constant L2_GASUSED_PER_ROUND = 1_000_000;
-    uint256 internal constant L2_MIN_DEPOSIT_GASUSED = 1_000_000;
-    uint256 internal constant L2_MIN_DEPOSIT_CALLDATA_SIZE_BYTES = 3200;
-    uint256 internal constant L2_GETREFUND_GASUSED = 100_000;
-    uint256 internal constant L2_GETREFUND_CALLDATA_SIZE_BYTES = 320;
+    uint256 internal constant TWOCOMMIT_TWOREVEAL_GASUSED = 1_000_000;
+    uint256 internal constant TWOCOMMIT_TWOREVEAL_CALLDATA_SIZE_BYTES = 3200;
+    uint256 internal constant ONECOMMIT_ONEREVEAL_GASUSED = 500_000;
+    uint256 internal constant ONECOMMIT_ONEREVEAL_CALLDATA_SIZE_BYTES = 1600;
+    uint256 internal constant REFUND_GASUSED = 100_000;
+    uint256 internal constant REFUND_CALLDATA_SIZE_BYTES = 320;
     /// @dev 5k is plenty for an EXTCODESIZE call (2600) + warm CALL (100) and some arithmetic operations
     uint256 internal constant GAS_FOR_CALL_EXACT_CHECK = 5_000;
 
@@ -59,7 +63,7 @@ contract DRBCoordinatorStorage {
     error InsufficientDeposit();
     error NotEnoughActivatedOperators();
     error AlreadyActivated();
-    error AlreadyDeactivated();
+    error AlreadyForceDeactivated();
     error NotActivatedOperator();
     error NotCommitted();
     error WasNotActivated();
@@ -121,9 +125,9 @@ contract DRBCoordinatorStorage {
         return s_activatedOperators.length - 1;
     }
 
-    /// ** s_minDeposit
+    /// ** s_maxLeastDepositForOneRound
     function getMinDeposit() external view returns (uint256) {
-        return s_minDeposit;
+        return s_maxLeastDepositForOneRound;
     }
 
     /// ** s_requestInfo
