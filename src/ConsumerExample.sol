@@ -14,9 +14,6 @@ contract ConsumerExample is DRBConsumerBase {
 
     // past requests Id.
     uint256[] public requestIds;
-    uint256 public requestCount;
-    uint256 public lastRequestId;
-
     uint32 public constant CALLBACK_GAS_LIMIT = 83011;
 
     constructor(address coordinator) DRBConsumerBase(coordinator) {}
@@ -25,17 +22,15 @@ contract ConsumerExample is DRBConsumerBase {
         uint256 requestId = _requestRandomNumber(CALLBACK_GAS_LIMIT);
         s_requests[requestId].requested = true;
         requestIds.push(requestId);
-        unchecked {
-            requestCount++;
-        }
-        lastRequestId = requestId;
     }
 
     function fulfillRandomWords(
         uint256 requestId,
         uint256 hashedOmegaVal
     ) internal override {
-        require(s_requests[requestId].requested, "Request not made");
+        if(!s_requests[requestId].requested) {
+            revert InvalidRequest(requestId);
+        }
         s_requests[requestId].fulfilled = true;
         s_requests[requestId].randomNumber = hashedOmegaVal;
     }
@@ -51,7 +46,11 @@ contract ConsumerExample is DRBConsumerBase {
         return (request.requested, request.fulfilled, request.randomNumber);
     }
 
-    function withdraw() external {
-        payable(msg.sender).transfer(address(this).balance);
+    function totalRequests() external view returns(uint256 requestCount) {
+        requestCount = requestIds.length;
+    }
+
+    function lastRequestId() external view returns(uint256 requestId) {
+        requestId = requestIds[requestIds.length - 1];
     }
 }

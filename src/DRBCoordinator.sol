@@ -353,7 +353,7 @@ contract DRBCoordinator is
 
     function depositAndActivate() external payable nonReentrant {
         _deposit();
-        _activate();
+        _activate(msg.sender);
     }
 
     function withdraw(uint256 amount) external nonReentrant {
@@ -371,20 +371,13 @@ contract DRBCoordinator is
             s_depositAmount[msg.sender] >= s_minDeposit,
             InsufficientDeposit()
         );
-        _activate();
+        _activate(msg.sender);
     }
 
     function deactivate() external nonReentrant {
         uint256 activatedOperatorIndex = s_activatedOperatorOrder[msg.sender];
         require(activatedOperatorIndex != 0, AlreadyDeactivated());
         _deactivate(activatedOperatorIndex);
-    }
-
-    function _activate() private {
-        require(s_activatedOperatorOrder[msg.sender] == 0, AlreadyActivated());
-        s_activatedOperatorOrder[msg.sender] = s_activatedOperators.length;
-        s_activatedOperators.push(msg.sender);
-        emit Activated(msg.sender);
     }
 
     function _activate(address operator) private {
