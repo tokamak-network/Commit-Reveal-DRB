@@ -390,7 +390,12 @@ contract DRBCoordinator is
 
     function _activate(address operator) private {
         require(s_activatedOperatorOrder[operator] == 0, AlreadyActivated());
-        s_activatedOperatorOrder[operator] = s_activatedOperators.length;
+        uint256 activatedOperatorLength = s_activatedOperators.length;
+        require(
+            activatedOperatorLength <= MAX_ACTIVATED_OPERATORS,
+            ACTIVATED_OPERATORS_LIMIT_REACHED()
+        );
+        s_activatedOperatorOrder[operator] = activatedOperatorLength;
         s_activatedOperators.push(operator);
         emit Activated(operator);
     }

@@ -12,8 +12,9 @@ contract DRBCoordinatorTest is BaseTest {
     address[] s_operatorAddresses;
     address[] s_consumerAddresses;
     ConsumerExample s_consumerExample;
-    uint256 s_activationThreshold = 10 ether;
-    uint256[3] s_compensations = [2 ether, 3 ether, 4 ether];
+    uint256 s_activationThreshold = 1 ether;
+    uint256[3] s_compensations = [0.2 ether, 0.3 ether, 0.4 ether];
+    uint256 s_flatFee = 0.01 ether;
 
     function mine() public {
         vm.warp(block.timestamp + 1);
@@ -32,7 +33,7 @@ contract DRBCoordinatorTest is BaseTest {
         }
         s_drbCoordinator = new DRBCoordinator(
             s_activationThreshold,
-            0.01 ether,
+            s_flatFee,
             s_compensations
         );
         s_consumerExample = new ConsumerExample(address(s_drbCoordinator));

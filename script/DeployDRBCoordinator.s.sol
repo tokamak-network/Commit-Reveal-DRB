@@ -12,10 +12,11 @@ contract DeployDRBCoordinator is Script {
             0.3 ether,
             0.4 ether
         ];
+        uint256 flatFee = 0.01 ether;
         vm.startBroadcast();
         DRBCoordinator coordinator = new DRBCoordinator(
             minDeposit,
-            0.01 ether,
+            flatFee,
             compensations
         );
         vm.stopBroadcast();

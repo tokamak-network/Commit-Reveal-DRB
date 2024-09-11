@@ -46,9 +46,9 @@ contract DRBCoordinatorStorage {
     uint256 internal s_activationThreshold;
 
     /// *** Constants ***
-    uint256 internal constant MAX_WAIT = 2 minutes;
-    uint256 internal constant COMMIT_DURATION = 2 minutes;
-    uint256 internal constant REVEAL_DURATION = 4 minutes;
+    uint256 internal constant MAX_WAIT = 1 hours;
+    uint256 internal constant COMMIT_DURATION = 5 minutes;
+    uint256 internal constant REVEAL_DURATION = 10 minutes;
     uint256 internal constant TWOCOMMIT_TWOREVEAL_GASUSED = 1_000_000;
     uint256 internal constant TWOCOMMIT_TWOREVEAL_CALLDATA_SIZE_BYTES = 3200;
     uint256 internal constant ONECOMMIT_ONEREVEAL_GASUSED = 500_000;
@@ -57,6 +57,7 @@ contract DRBCoordinatorStorage {
     uint256 internal constant REFUND_CALLDATA_SIZE_BYTES = 320;
     /// @dev 5k is plenty for an EXTCODESIZE call (2600) + warm CALL (100) and some arithmetic operations
     uint256 internal constant GAS_FOR_CALL_EXACT_CHECK = 5_000;
+    uint256 internal constant MAX_ACTIVATED_OPERATORS = 7;
 
     /// *** Errors ***
     error InsufficientAmount();
@@ -75,6 +76,7 @@ contract DRBCoordinatorStorage {
     error NotSlashingCondition();
     error NotRefundable();
     error NotConsumer();
+    error ACTIVATED_OPERATORS_LIMIT_REACHED();
 
     /// *** Events ***
     event RandomNumberRequested(uint256 round, address[] activatedOperators);
