@@ -43,7 +43,7 @@ contract DRBCoordinatorStorage {
     uint256 internal s_nextRound;
     uint256 internal s_premiumPercentage;
     uint256 internal s_flatFee;
-    uint256 internal s_maxLeastDepositForOneRound;
+    uint256 internal s_activationThreshold;
 
     /// *** Constants ***
     uint256 internal constant MAX_WAIT = 2 minutes;
@@ -125,9 +125,9 @@ contract DRBCoordinatorStorage {
         return s_activatedOperators.length - 1;
     }
 
-    /// ** s_maxLeastDepositForOneRound
+    /// ** s_activationThreshold
     function getMinDeposit() external view returns (uint256) {
-        return s_maxLeastDepositForOneRound;
+        return s_activationThreshold;
     }
 
     /// ** s_requestInfo

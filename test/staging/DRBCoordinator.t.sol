@@ -12,7 +12,7 @@ contract DRBCoordinatorTest is BaseTest {
     address[] s_operatorAddresses;
     address[] s_consumerAddresses;
     ConsumerExample s_consumerExample;
-    uint256 s_maxLeastDepositForOneRound = 10 ether;
+    uint256 s_activationThreshold = 10 ether;
     uint256[3] s_compensations = [2 ether, 3 ether, 4 ether];
 
     function mine() public {
@@ -31,7 +31,7 @@ contract DRBCoordinatorTest is BaseTest {
             vm.deal(s_consumerAddresses[i], 10000 ether);
         }
         s_drbCoordinator = new DRBCoordinator(
-            s_maxLeastDepositForOneRound,
+            s_activationThreshold,
             0.01 ether,
             s_compensations
         );
@@ -43,10 +43,10 @@ contract DRBCoordinatorTest is BaseTest {
 
     function deposit(address operator) public {
         vm.startPrank(operator);
-        s_drbCoordinator.deposit{value: s_maxLeastDepositForOneRound}();
+        s_drbCoordinator.deposit{value: s_activationThreshold}();
         assertEq(
             s_drbCoordinator.getDepositAmount(operator),
-            s_maxLeastDepositForOneRound
+            s_activationThreshold
         );
         vm.stopPrank();
     }
@@ -172,7 +172,7 @@ contract DRBCoordinatorTest is BaseTest {
             uint256 depositAmount = s_drbCoordinator.getDepositAmount(
                 s_operatorAddresses[i]
             );
-            if (depositAmount < s_maxLeastDepositForOneRound) {
+            if (depositAmount < s_activationThreshold) {
                 assertEq(
                     s_drbCoordinator.getActivatedOperatorIndex(
                         s_operatorAddresses[i]
@@ -268,7 +268,7 @@ contract DRBCoordinatorTest is BaseTest {
             uint256 depositAmount = s_drbCoordinator.getDepositAmount(
                 s_operatorAddresses[i]
             );
-            if (depositAmount < s_maxLeastDepositForOneRound) {
+            if (depositAmount < s_activationThreshold) {
                 assertEq(
                     s_drbCoordinator.getActivatedOperatorIndex(
                         s_operatorAddresses[i]
@@ -359,7 +359,7 @@ contract DRBCoordinatorTest is BaseTest {
             uint256 updatedDepositAmount = depositAmountsBefore[i] -
                 slashedAmount;
             assertEq(depositAmountsAfter[i], updatedDepositAmount);
-            if (updatedDepositAmount < s_maxLeastDepositForOneRound) {
+            if (updatedDepositAmount < s_activationThreshold) {
                 assertEq(
                     s_drbCoordinator.getActivatedOperatorIndex(
                         s_operatorAddresses[i]
@@ -454,7 +454,7 @@ contract DRBCoordinatorTest is BaseTest {
                     updatedDepositAmount,
                     "committed operator balance"
                 );
-                if (updatedDepositAmount < s_maxLeastDepositForOneRound) {
+                if (updatedDepositAmount < s_activationThreshold) {
                     assertEq(
                         s_drbCoordinator.getActivatedOperatorIndex(
                             s_operatorAddresses[i]
@@ -477,7 +477,7 @@ contract DRBCoordinatorTest is BaseTest {
                     updatedDepositAmount,
                     "uncommitted operator balance"
                 );
-                if (updatedDepositAmount < s_maxLeastDepositForOneRound) {
+                if (updatedDepositAmount < s_activationThreshold) {
                     assertEq(
                         s_drbCoordinator.getActivatedOperatorIndex(
                             s_operatorAddresses[i]
@@ -580,7 +580,7 @@ contract DRBCoordinatorTest is BaseTest {
                     updatedDepositAmount,
                     "revealed operator balance"
                 );
-                if (updatedDepositAmount < s_maxLeastDepositForOneRound) {
+                if (updatedDepositAmount < s_activationThreshold) {
                     assertEq(
                         s_drbCoordinator.getActivatedOperatorIndex(
                             s_operatorAddresses[i]
@@ -603,7 +603,7 @@ contract DRBCoordinatorTest is BaseTest {
                     updatedDepositAmount,
                     "unrevealed operator balance"
                 );
-                if (updatedDepositAmount < s_maxLeastDepositForOneRound) {
+                if (updatedDepositAmount < s_activationThreshold) {
                     assertEq(
                         s_drbCoordinator.getActivatedOperatorIndex(
                             s_operatorAddresses[i]

@@ -22,11 +22,11 @@ contract DRBCoordinator is
 {
     /// *** Functions ***
     constructor(
-        uint256 maxLeastDepositForOneRound,
+        uint256 activationThreshold,
         uint256 flatFee,
         uint256[3] memory compensations
     ) Ownable(msg.sender) {
-        s_maxLeastDepositForOneRound = maxLeastDepositForOneRound;
+        s_activationThreshold = activationThreshold;
         s_flatFee = flatFee;
         s_compensations = compensations;
         s_returnAmountForOperators[0] = compensations[2] - compensations[0];
@@ -72,7 +72,7 @@ contract DRBCoordinator is
             uint256 activatedOperatorIndex = s_activatedOperatorOrder[operator];
             if (
                 (s_depositAmount[operator] -= minDepositForThisRound) <
-                s_maxLeastDepositForOneRound
+                s_activationThreshold
             ) _deactivate(activatedOperatorIndex, operator);
             unchecked {
                 ++i;
@@ -125,7 +125,7 @@ contract DRBCoordinator is
                 _checkAndActivateIfNotForceDeactivated(
                     s_activatedOperatorOrder[operator],
                     s_depositAmount[operator] += operatorReturnAmount,
-                    s_maxLeastDepositForOneRound,
+                    s_activationThreshold,
                     operator
                 );
             }
@@ -162,7 +162,7 @@ contract DRBCoordinator is
                     _checkAndActivateIfNotForceDeactivated(
                         s_activatedOperatorOrder[operator],
                         s_depositAmount[operator] += operatorReturnAmount,
-                        s_maxLeastDepositForOneRound,
+                        s_activationThreshold,
                         operator
                     );
                 }
@@ -183,7 +183,7 @@ contract DRBCoordinator is
                             s_depositAmount[
                                 operator
                             ] += returnAmountForRevealed,
-                            s_maxLeastDepositForOneRound,
+                            s_activationThreshold,
                             operator
                         );
                     }
@@ -334,13 +334,13 @@ contract DRBCoordinator is
             uint256 dividedReward = s_requestInfo[round].cost /
                 revealLength +
                 s_requestInfo[round].minDepositForOperator;
-            uint256 maxLeastDepositForOneRound = s_maxLeastDepositForOneRound;
+            uint256 activationThreshold = s_activationThreshold;
             for (uint256 i = 1; i <= revealLength; i = _unchecked_inc(i)) {
                 address operator = s_activatedOperatorsAtRound[round][i];
                 _checkAndActivateIfNotForceDeactivated(
                     s_activatedOperatorOrder[operator],
                     s_depositAmount[operator] += dividedReward,
-                    maxLeastDepositForOneRound,
+                    activationThreshold,
                     operator
                 );
             }
@@ -362,14 +362,14 @@ contract DRBCoordinator is
         uint256 activatedOperatorIndex = s_activatedOperatorOrder[msg.sender];
         if (
             activatedOperatorIndex != 0 &&
-            s_depositAmount[msg.sender] < s_maxLeastDepositForOneRound
+            s_depositAmount[msg.sender] < s_activationThreshold
         ) _deactivate(activatedOperatorIndex, msg.sender);
         payable(msg.sender).transfer(amount);
     }
 
     function activate() external nonReentrant {
         require(
-            s_depositAmount[msg.sender] >= s_maxLeastDepositForOneRound,
+            s_depositAmount[msg.sender] >= s_activationThreshold,
             InsufficientDeposit()
         );
         if (s_forceDeactivated[msg.sender])
@@ -397,10 +397,7 @@ contract DRBCoordinator is
 
     function _deposit() private {
         uint256 totalAmount = s_depositAmount[msg.sender] + msg.value;
-        require(
-            totalAmount >= s_maxLeastDepositForOneRound,
-            InsufficientAmount()
-        );
+        require(totalAmount >= s_activationThreshold, InsufficientAmount());
         s_depositAmount[msg.sender] = totalAmount;
     }
 
@@ -478,10 +475,10 @@ contract DRBCoordinator is
         s_flatFee = flatFee;
     }
 
-    function setMinDeposit(
-        uint256 maxLeastDepositForOneRound
+    function setActivationThreshold(
+        uint256 activationThreshold
     ) external onlyOwner {
-        s_maxLeastDepositForOneRound = maxLeastDepositForOneRound;
+        s_activationThreshold = activationThreshold;
     }
 
     function setCompensations(
