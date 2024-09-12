@@ -132,6 +132,16 @@ contract Commit is Utils {
         uint256 commitLengthAfter = drbCoordinator.getCommitsLength(round);
         console2.log("commit length at round:", round, ": ", commitLengthAfter);
     }
+
+    function run(uint256 round, address drbCoordinatorAddress) public {
+        DRBCoordinator drbCoordinator = DRBCoordinator(drbCoordinatorAddress);
+        uint256 commitLength = drbCoordinator.getCommitsLength(round);
+        vm.startBroadcast();
+        drbCoordinator.commit(round, keccak256(abi.encodePacked(commitLength)));
+        vm.stopBroadcast();
+        uint256 commitLengthAfter = drbCoordinator.getCommitsLength(round);
+        console2.log("commit length at round:", round, ": ", commitLengthAfter);
+    }
 }
 
 contract Reveal is Utils {
@@ -149,6 +159,37 @@ contract Reveal is Utils {
 
         vm.startBroadcast(operator);
         drbCoordinator.reveal(round, bytes32(revealLength));
+        vm.stopBroadcast();
+        uint256 commitLength = drbCoordinator.getCommitsLength(round);
+        uint256 revealLengthAfter = drbCoordinator.getRevealsLength(round);
+        console2.log("commit length at round:", round, ": ", commitLength);
+        console2.log("reveal length at round:", round, ": ", revealLengthAfter);
+        if (commitLength == revealLengthAfter) {
+            console2.log("All operators have revealed");
+            roundInfo = drbCoordinator.getRoundInfo(round);
+            console2.log(
+                "round:",
+                round,
+                " random number:",
+                roundInfo.randomNumber
+            );
+        }
+    }
+
+    function run(uint256 round, address drbCoordinatorAddress) public {
+        DRBCoordinator drbCoordinator = DRBCoordinator(drbCoordinatorAddress);
+        DRBCoordinator.RoundInfo memory roundInfo = drbCoordinator.getRoundInfo(
+            round
+        );
+        uint256 commitEndTime = roundInfo.commitEndTime;
+
+        console2.log("commit end time:", commitEndTime);
+        console2.log("current time:", block.timestamp);
+
+        uint256 commitOrder = drbCoordinator.getCommitOrder(round, msg.sender);
+
+        vm.startBroadcast();
+        drbCoordinator.reveal(round, bytes32(commitOrder - 1));
         vm.stopBroadcast();
         uint256 commitLength = drbCoordinator.getCommitsLength(round);
         uint256 revealLengthAfter = drbCoordinator.getRevealsLength(round);
