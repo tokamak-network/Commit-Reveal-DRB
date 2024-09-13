@@ -9,7 +9,7 @@ import {DRBConsumerBase} from "./DRBConsumerBase.sol";
 /**
  * @title RareTitle
  * @notice This contract implements a game where players can earn points by
- *         claiming titles on a board. The game uses Chainlink VRF for random number
+ *         claiming titles on a board. The game uses DRBCoordinator for random number
  *         generation and rewards players with tokens.
  */
 contract RareTitle is DRBConsumerBase, ReentrancyGuard, Ownable {
