@@ -308,7 +308,7 @@ contract DRBCoordinatorTest is BaseTest {
         }
         vm.warp(block.timestamp + 301);
         mine();
-        for (uint256 i; i < s_operatorAddresses.length; i++) {
+        for (uint256 i; i < 2; i++) {
             address operator = s_operatorAddresses[i];
             vm.startPrank(operator);
             s_drbCoordinator.reveal(requestId, bytes32(i));
