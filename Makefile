@@ -80,10 +80,16 @@ request-random-with-address:
 ROUND := $()
 
 commit:
-	@forge script script/Interactions.s.sol:Commit $(NETWORK_ARGS) --sig "run(uint256)" $(ROUND)
+	@forge script script/Interactions.s.sol:Commit $(NETWORK_ARGS) --sig "run(uint256)" $(ROUND) -vv
+
+commit-with-address:
+	@forge script script/Interactions.s.sol:Commit $(NETWORK_ARGS) --sig "run(uint256,address)" $(ROUND) $(ADDRESS) -vv
 
 reveal:
 	@forge script script/Interactions.s.sol:Reveal $(NETWORK_ARGS) --sig "run(uint256)" $(ROUND)
+
+reveal-with-address:
+	@forge script script/Interactions.s.sol:Reveal $(NETWORK_ARGS) --sig "run(uint256,address)" $(ROUND) $(ADDRESS)
 
 SECOND := $()
 

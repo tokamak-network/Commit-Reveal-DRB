@@ -46,7 +46,7 @@ contract DRBCoordinatorStorage {
     uint256 internal s_activationThreshold;
 
     /// *** Constants ***
-    uint256 internal constant MAX_WAIT = 1 hours;
+    uint256 internal constant MAX_WAIT = 10 minutes;
     uint256 internal constant COMMIT_DURATION = 5 minutes;
     uint256 internal constant REVEAL_DURATION = 10 minutes;
     uint256 internal constant TWOCOMMIT_TWOREVEAL_GASUSED = 1_000_000;
