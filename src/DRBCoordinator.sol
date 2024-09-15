@@ -66,13 +66,18 @@ contract DRBCoordinator is
         ] = activatedOperators = s_activatedOperators;
         uint256 activatedOperatorsLength = activatedOperators.length;
         uint256 i = 1;
+        mapping(address => uint256)
+            storage activatedOperatorOrderAtRound = s_activatedOperatorOrderAtRound[
+                round
+            ];
+        uint256 activationThreshold = s_activationThreshold;
         do {
             address operator = activatedOperators[i];
-            s_activatedOperatorOrderAtRound[round][operator] = i;
+            activatedOperatorOrderAtRound[operator] = i;
             uint256 activatedOperatorIndex = s_activatedOperatorOrder[operator];
             if (
                 (s_depositAmount[operator] -= minDepositForThisRound) <
-                s_activationThreshold
+                activationThreshold
             ) _deactivate(activatedOperatorIndex, operator);
             unchecked {
                 ++i;
@@ -271,28 +276,36 @@ contract DRBCoordinator is
     /// ** Operator(Node) Interface **
 
     function commit(uint256 round, bytes32 a) external {
+        address[]
+            storage activatedOperatorsAtRound = s_activatedOperatorsAtRound[
+                round
+            ];
         require(
-            s_activatedOperatorsAtRound[round][
+            activatedOperatorsAtRound[
                 s_activatedOperatorOrderAtRound[round][msg.sender]
             ] == msg.sender,
             WasNotActivated()
         );
-        if (s_commits[round].length == 0) {
-            s_roundInfo[round].commitEndTime =
-                block.timestamp +
-                COMMIT_DURATION;
+        bytes32[] storage commits = s_commits[round];
+        RoundInfo storage roundInfo = s_roundInfo[round];
+        mapping(address => uint256) storage commitOrder = s_commitOrder[round];
+        uint256 commitLength = commits.length;
+        if (commitLength == 0) {
+            roundInfo.commitEndTime = block.timestamp + COMMIT_DURATION;
         } else {
             require(
-                block.timestamp <= s_roundInfo[round].commitEndTime,
+                block.timestamp <= roundInfo.commitEndTime,
                 CommitPhaseOver()
             );
-            require(s_commitOrder[round][msg.sender] == 0, AlreadyCommitted());
+            require(commitOrder[msg.sender] == 0, AlreadyCommitted());
         }
-        s_commits[round].push(a);
-        uint256 commitLength = s_commits[round].length;
-        s_commitOrder[round][msg.sender] = commitLength;
-        if (commitLength == s_activatedOperatorsAtRound[round].length - 1) {
-            s_roundInfo[round].commitEndTime = block.timestamp;
+        commits.push(a);
+        unchecked {
+            ++commitLength;
+        }
+        commitOrder[msg.sender] = commitLength;
+        if (commitLength == activatedOperatorsAtRound.length - 1) {
+            roundInfo.commitEndTime = block.timestamp;
         }
         emit Commit(msg.sender, round);
     }
@@ -300,46 +313,61 @@ contract DRBCoordinator is
     function reveal(uint256 round, bytes32 s) external {
         uint256 commitOrder = s_commitOrder[round][msg.sender];
         require(commitOrder != 0, NotCommitted());
-        require(s_revealOrder[round][msg.sender] == 0, AlreadyRevealed());
-        uint256 commitEndTime = s_roundInfo[round].commitEndTime;
-        uint256 commitLength = s_commits[round].length;
+        mapping(address => uint256) storage revealOrder = s_revealOrder[round];
+        require(revealOrder[msg.sender] == 0, AlreadyRevealed());
+        RoundInfo storage roundInfo = s_roundInfo[round];
+        bytes32[] storage commits = s_commits[round];
+        bytes32[] storage reveals = s_reveals[round];
+        uint256 commitEndTime = roundInfo.commitEndTime;
+        uint256 commitLength = commits.length;
         require(
             (block.timestamp > commitEndTime &&
                 block.timestamp <= commitEndTime + REVEAL_DURATION),
             NotRevealPhase()
         );
         require(
-            keccak256(abi.encodePacked(s)) == s_commits[round][commitOrder - 1],
+            keccak256(abi.encodePacked(s)) == commits[commitOrder - 1],
             RevealValueMismatch()
         );
-        s_reveals[round].push(s);
-        uint256 revealLength = s_revealOrder[round][msg.sender] = s_reveals[
-            round
-        ].length;
+        reveals.push(s);
+        uint256 revealLength = revealOrder[msg.sender] = reveals.length;
         if (revealLength == commitLength) {
             uint256 randomNumber = uint256(
-                keccak256(abi.encodePacked(s_reveals[round]))
+                keccak256(abi.encodePacked(reveals))
             );
-            s_roundInfo[round].randomNumber = randomNumber;
+            roundInfo.randomNumber = randomNumber;
+            RequestInfo storage requestInfo = s_requestInfo[round];
             bool success = _call(
-                s_requestInfo[round].consumer,
+                requestInfo.consumer,
                 abi.encodeWithSelector(
                     DRBConsumerBase.rawFulfillRandomWords.selector,
                     round,
                     randomNumber
                 ),
-                s_requestInfo[round].callbackGasLimit
+                requestInfo.callbackGasLimit
             );
-            s_roundInfo[round].fulfillSucceeded = success;
-            uint256 dividedReward = s_requestInfo[round].cost /
+            roundInfo.fulfillSucceeded = success;
+            uint256 minDepositForThisRound = requestInfo.minDepositForOperator;
+            uint256 minDepositWithReward = requestInfo.cost /
                 revealLength +
-                s_requestInfo[round].minDepositForOperator;
+                minDepositForThisRound;
             uint256 activationThreshold = s_activationThreshold;
-            for (uint256 i = 1; i <= revealLength; i = _unchecked_inc(i)) {
+            uint256 activatedOperatorsAtRoundLength = s_activatedOperatorsAtRound[
+                    round
+                ].length - 1;
+            for (
+                uint256 i = 1;
+                i <= activatedOperatorsAtRoundLength;
+                i = _unchecked_inc(i)
+            ) {
                 address operator = s_activatedOperatorsAtRound[round][i];
                 _checkAndActivateIfNotForceDeactivated(
                     s_activatedOperatorOrder[operator],
-                    s_depositAmount[operator] += dividedReward,
+                    s_depositAmount[operator] += (
+                        revealOrder[operator] != 0
+                            ? minDepositWithReward
+                            : minDepositForThisRound
+                    ),
                     activationThreshold,
                     operator
                 );
