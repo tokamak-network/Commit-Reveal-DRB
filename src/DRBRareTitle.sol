@@ -64,7 +64,7 @@ contract RareTitle is DRBConsumerBase, ReentrancyGuard, Ownable {
     error InsufficientBalance(uint256 required, uint256 actual);
     error GameNotActive();
     error GameNotExpired();
-    error NoEtherToWithdraw();
+    error NoAmountToWithdraw();
     error RewardAlreadyClaimed();
 
     // Modifiers
@@ -130,10 +130,6 @@ contract RareTitle is DRBConsumerBase, ReentrancyGuard, Ownable {
      *      Emits a {RewardClaimed} event upon successful transfer of the reward.
      */
     function claimPrize() external gameExpired {
-        if (msg.sender != winner) {
-            revert CallerIsNotWinner(msg.sender);
-        }
-
         if (rewardClaimed) {
             revert RewardAlreadyClaimed();
         }
@@ -145,6 +141,7 @@ contract RareTitle is DRBConsumerBase, ReentrancyGuard, Ownable {
         }
 
         tonToken.transfer(msg.sender, reward);
+        rewardClaimed = true;
         emit RewardClaimed(msg.sender, reward);
     }
 
@@ -174,10 +171,26 @@ contract RareTitle is DRBConsumerBase, ReentrancyGuard, Ownable {
     function withdrawEth() external onlyOwner {
         uint256 balance = address(this).balance;
         if (balance == 0) {
-            revert NoEtherToWithdraw();
+            revert NoAmountToWithdraw();
         }
 
         payable(owner()).transfer(balance);
+        emit FundsWithdrawn(balance);
+    }
+
+    /**
+     * @notice Withdraws all TON from the contract to the owner.
+     * @dev This function is restricted to the contract owner via the `onlyOwner` modifier.
+     * @dev It reverts with a `NoAmountToWithdraw` error if the contract balance is zero.
+     * @dev Transfers the entire balance to the owner and emits a `FundsWithdrawn` event.
+     */
+    function withdrawTon() external onlyOwner {
+        uint256 balance = tonToken.balanceOf(address(this));
+        if (balance == 0) {
+            revert NoAmountToWithdraw();
+        }
+
+        tonToken.transfer(owner(), balance);
         emit FundsWithdrawn(balance);
     }
 
