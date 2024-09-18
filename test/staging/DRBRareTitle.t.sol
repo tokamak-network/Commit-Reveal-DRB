@@ -2,10 +2,10 @@
 pragma solidity ^0.8.26;
 
 import {DRBCoordinator} from "../../src/DRBCoordinator.sol";
-import { DRBCoordinatorStorageTest } from "test/shared/DRBCoordinatorStorageTest.t.sol";
-import { MockTON } from "test/shared/MockTON.sol";
+import {DRBCoordinatorStorageTest} from "test/shared/DRBCoordinatorStorageTest.t.sol";
+import {MockTON} from "test/shared/MockTON.sol";
 import {RareTitle} from "../../src/DRBRareTitle.sol";
-import {console2} from "forge-std/Test.sol";
+import { console } from "lib/forge-std/src/console.sol";
 
 contract DRBRareTitleTest is DRBCoordinatorStorageTest {
     RareTitle public s_drbRareTitle;
@@ -16,12 +16,18 @@ contract DRBRareTitleTest is DRBCoordinatorStorageTest {
     function setUp() public override {
         _setUp();
         ton = new MockTON("TON Token", "TON");
-        s_drbRareTitle = new RareTitle(address(s_drbCoordinator), block.timestamp + 100, ton, tonReward);
+        s_drbRareTitle = new RareTitle(
+            address(s_drbCoordinator),
+            block.timestamp + 100,
+            ton,
+            tonReward
+        );
+        
         _depositAndActivateAll();
         _fillGameBoard();
     }
 
-    function mine(uint256 increaseTimeBy, uint256 increaseBlockBy) public {
+    function _mine(uint256 increaseTimeBy, uint256 increaseBlockBy) internal {
         vm.warp(block.timestamp + increaseTimeBy);
         vm.roll(block.number + increaseBlockBy);
     }
@@ -29,11 +35,17 @@ contract DRBRareTitleTest is DRBCoordinatorStorageTest {
     function _depositAndActivate(address operator) internal {
         vm.startPrank(operator);
         s_drbCoordinator.depositAndActivate{value: s_activationThreshold}();
-        address[] memory activatedOperators = s_drbCoordinator.getActivatedOperators();
-        assertTrue(activatedOperators[s_drbCoordinator.getActivatedOperatorIndex(operator)] == operator,
-        "Activated operator address donot match the passed operator");
+        address[] memory activatedOperators = s_drbCoordinator
+            .getActivatedOperators();
         assertTrue(
-            s_drbCoordinator.getDepositAmount(operator) == s_activationThreshold,
+            activatedOperators[
+                s_drbCoordinator.getActivatedOperatorIndex(operator)
+            ] == operator,
+            "Activated operator address donot match the passed operator"
+        );
+        assertTrue(
+            s_drbCoordinator.getDepositAmount(operator) ==
+                s_activationThreshold,
             "Deposited amount is not equal to activation threshold"
         );
         vm.stopPrank();
@@ -47,23 +59,7 @@ contract DRBRareTitleTest is DRBCoordinatorStorageTest {
         vm.startPrank(OWNER);
     }
 
-    function test_PlaySingleUser() public { // WIP
-        address player = s_consumerAddresses[0];
-        uint256 callbackGasLimit = s_drbRareTitle.CALLBACK_GAS_LIMIT();
-        uint256 cost = s_drbCoordinator.estimateRequestPrice(
-            callbackGasLimit,
-            tx.gasprice
-        );
-        uint256 randomNumber = _play(player, cost);
-        uint256 gameIndex = randomNumber % s_drbRareTitle.BOARD_SIZE();
-        int16 expectedPoints = gameBoard[gameIndex];
-        vm.startPrank(player);
-        int16 actualPoints = s_drbRareTitle.viewTotalPoints();
-        vm.stopPrank();
-        assertTrue(actualPoints == expectedPoints, "Actual Player points are not equal to expected value");
-    }
-
-    function _play(address player, uint256 cost) internal returns(uint256) {
+    function _play(address player, uint256 cost) internal returns (uint256) {
         // request random no while playing
         vm.startPrank(player);
         s_drbRareTitle.play{value: cost}();
@@ -74,11 +70,15 @@ contract DRBRareTitleTest is DRBCoordinatorStorageTest {
         for (uint256 i; i < s_operatorAddresses.length; ++i) {
             address operator = s_operatorAddresses[i];
             vm.startPrank(operator);
-            s_drbCoordinator.commit(requestId, keccak256(abi.encodePacked(i, player)));
+            bytes32 operatorSecret = bytes32(abi.encodePacked(i, player));
+            s_drbCoordinator.commit(
+                requestId,
+                keccak256(abi.encodePacked(operatorSecret))
+            );
             vm.stopPrank();
             uint256 gasUsed = vm.lastCallGas().gasTotalUsed;
-            console2.log("commit GasUsed", gasUsed);
-            mine(1,1);
+            console.log("commit GasUsed", gasUsed);
+            _mine(1, 1);
 
             uint256 commitOrder = s_drbCoordinator.getCommitOrder(
                 requestId,
@@ -138,39 +138,59 @@ contract DRBRareTitleTest is DRBCoordinatorStorageTest {
                 );
             }
         }
-    return randomNumber;
+        return randomNumber;
     }
 
     function _fillGameBoard() internal {
         uint256 i;
-        gameBoard[i] = 100;
+        gameBoard.push(100);
         ++i;
         uint256 count = 3;
         do {
-            gameBoard[i] = 30;
+            gameBoard.push(30);
             ++i;
             --count;
-        } while(count > 0);
+        } while (count > 0);
 
         count = 10;
         do {
-            gameBoard[i] = 20;
+            gameBoard.push(20);
             ++i;
             --count;
-        } while(count > 0);
+        } while (count > 0);
 
         count = 40;
         do {
-            gameBoard[i] = 10;
+            gameBoard.push(10);
             ++i;
             --count;
-        } while(count > 0);
+        } while (count > 0);
 
         count = 46;
         do {
-            gameBoard[i] = -5;
+            gameBoard.push(-5);
             ++i;
             --count;
-        } while(count > 0); 
+        } while (count > 0);
+    }
+
+    function test_PlaySingleUser() public {
+        // WIP
+        address player = s_consumerAddresses[0];
+        uint256 callbackGasLimit = s_drbRareTitle.CALLBACK_GAS_LIMIT();
+        uint256 cost = s_drbCoordinator.estimateRequestPrice(
+            callbackGasLimit,
+            tx.gasprice
+        );
+        uint256 randomNumber = _play(player, cost);
+        uint256 gameIndex = randomNumber % s_drbRareTitle.BOARD_SIZE();
+        int16 expectedPoints = gameBoard[gameIndex];
+        vm.startPrank(player);
+        int16 actualPoints = s_drbRareTitle.viewTotalPoints();
+        vm.stopPrank();
+        assertTrue(
+            actualPoints == expectedPoints,
+            "Actual Player points are not equal to expected value"
+        );
     }
 }
