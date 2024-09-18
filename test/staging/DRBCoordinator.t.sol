@@ -226,9 +226,6 @@ contract DRBCoordinatorTest is BaseTest {
             vm.startPrank(operator);
             s_drbCoordinator.commit(requestId, keccak256(abi.encodePacked(i)));
             vm.stopPrank();
-            uint256 gasUsed = vm.lastCallGas().gasTotalUsed;
-            console2.log("commit GasUsed");
-            console2.log(gasUsed);
             mine();
 
             uint256 commitOrder = s_drbCoordinator.getCommitOrder(
@@ -293,18 +290,12 @@ contract DRBCoordinatorTest is BaseTest {
 
         /// ** run one more time
         requestRandomNumber();
-        uint256 gasUsed = vm.lastCallGas().gasTotalUsed;
-        console2.log("request GasUsed");
-        console2.log(gasUsed);
         requestId = s_consumerExample.lastRequestId();
         for (uint256 i; i < 2; i++) {
             address operator = s_operatorAddresses[i];
             vm.startPrank(operator);
             s_drbCoordinator.commit(requestId, keccak256(abi.encodePacked(i)));
             vm.stopPrank();
-            gasUsed = vm.lastCallGas().gasTotalUsed;
-            console2.log("commit GasUsed");
-            console2.log(gasUsed);
         }
         vm.warp(block.timestamp + 301);
         mine();
@@ -313,9 +304,6 @@ contract DRBCoordinatorTest is BaseTest {
             vm.startPrank(operator);
             s_drbCoordinator.reveal(requestId, bytes32(i));
             vm.stopPrank();
-            gasUsed = vm.lastCallGas().gasTotalUsed;
-            console2.log("reveal GasUsed");
-            console2.log(gasUsed);
         }
 
         checkBalanceInvariant();

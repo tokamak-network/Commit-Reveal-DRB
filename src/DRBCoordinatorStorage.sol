@@ -49,9 +49,9 @@ contract DRBCoordinatorStorage {
     uint256 internal constant MAX_WAIT = 10 minutes;
     uint256 internal constant COMMIT_DURATION = 5 minutes;
     uint256 internal constant REVEAL_DURATION = 10 minutes;
-    uint256 internal constant TWOCOMMIT_TWOREVEAL_GASUSED = 1_000_000;
+    uint256 internal constant TWOCOMMIT_TWOREVEAL_GASUSED = 511753;
     uint256 internal constant TWOCOMMIT_TWOREVEAL_CALLDATA_SIZE_BYTES = 3200;
-    uint256 internal constant ONECOMMIT_ONEREVEAL_GASUSED = 500_000;
+    uint256 internal constant ONECOMMIT_ONEREVEAL_GASUSED = 255877;
     uint256 internal constant ONECOMMIT_ONEREVEAL_CALLDATA_SIZE_BYTES = 1600;
     uint256 internal constant REFUND_GASUSED = 100_000;
     uint256 internal constant REFUND_CALLDATA_SIZE_BYTES = 320;
@@ -97,6 +97,11 @@ contract DRBCoordinatorStorage {
         )
     {
         return (MAX_WAIT, COMMIT_DURATION, REVEAL_DURATION);
+    }
+
+    /// *** MAX_ACTIVATED_OPERATORS
+    function getMaxActivatedOperators() external pure returns (uint256) {
+        return MAX_ACTIVATED_OPERATORS;
     }
 
     /// ** s_compensations
