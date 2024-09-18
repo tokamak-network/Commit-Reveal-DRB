@@ -36,7 +36,7 @@ contract RareTitle is DRBConsumerBase, ReentrancyGuard, Ownable {
     // Constants
     uint8 public constant BOARD_SIZE = 100;
     uint8 public constant MAX_NO_OF_TURNS = 10;
-    uint32 private constant CALLBACK_GAS_LIMIT = 50000; // Depends on the number of requested values that you request
+    uint32 public constant CALLBACK_GAS_LIMIT = 50000; // Depends on the number of requested values that you request
 
     // Storage Variables
     IERC20 public tonToken;
@@ -66,6 +66,8 @@ contract RareTitle is DRBConsumerBase, ReentrancyGuard, Ownable {
     error GameNotExpired();
     error NoAmountToWithdraw();
     error RewardAlreadyClaimed();
+    error InvalidAddress();
+    error InvalidReward();
 
     // Modifiers
 
@@ -94,12 +96,29 @@ contract RareTitle is DRBConsumerBase, ReentrancyGuard, Ownable {
      */
     constructor(
         address _rngCoordinator,
+        uint256 _gameExpiry,
         IERC20 _ton,
         uint256 _reward
     ) DRBConsumerBase(_rngCoordinator) Ownable(msg.sender) {
         _initializeBoard();
+
+        require(_gameExpiry != 0, InvalidGameExpiry(_gameExpiry));
+        gameExpiry = _gameExpiry;
+
+        require(address(_ton) != address(0), InvalidAddress());
         tonToken = _ton;
+
+        require(_reward != 0, InvalidReward());
         reward = _reward;
+    }
+
+    function viewTotalPoints() public view returns(int16 totalPoints) {
+        User memory user = playerInfo[msg.sender];
+        totalPoints = user.totalPoints;
+    }
+
+    function getLastRequestId() public view returns(uint256 requestId) {
+        requestId = requestIds[requestIds.length - 1];
     }
 
     /**

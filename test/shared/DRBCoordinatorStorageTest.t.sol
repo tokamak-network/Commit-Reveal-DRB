@@ -1,14 +1,14 @@
-pragma solidity 0.8.26^;
+pragma solidity ^0.8.26;
 
 import {DRBCoordinator} from "../../src/DRBCoordinator.sol";
 import {BaseTest} from "../shared/BaseTest.t.sol";
 
 abstract contract DRBCoordinatorStorageTest is BaseTest {
-    DRBCoordinator immutable s_drbCoordinator;
+    DRBCoordinator public s_drbCoordinator;
     address[] s_operatorAddresses;
     address[] s_consumerAddresses;
     uint256 constant s_activationThreshold = 1 ether;
-    uint256[3] constant s_compensations = [0.2 ether, 0.3 ether, 0.4 ether];
+    uint256[3] s_compensations = [0.2 ether, 0.3 ether, 0.4 ether];
     uint256 constant s_flatFee = 0.01 ether;
 
     function _setUp() internal virtual {
