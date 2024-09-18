@@ -117,6 +117,11 @@ contract RareTitle is DRBConsumerBase, ReentrancyGuard, Ownable {
         totalPoints = user.totalPoints;
     }
 
+    function viewRemainingTurns() public view returns(uint256 remainingTurns) {
+        User memory user = playerInfo[msg.sender];
+        remainingTurns = MAX_NO_OF_TURNS - user.totalTurns;
+    }
+
     function getLastRequestId() public view returns(uint256 requestId) {
         requestId = requestIds[requestIds.length - 1];
     }

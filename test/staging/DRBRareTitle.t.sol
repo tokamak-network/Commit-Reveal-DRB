@@ -5,7 +5,7 @@ import {DRBCoordinator} from "../../src/DRBCoordinator.sol";
 import {DRBCoordinatorStorageTest} from "test/shared/DRBCoordinatorStorageTest.t.sol";
 import {MockTON} from "test/shared/MockTON.sol";
 import {RareTitle} from "../../src/DRBRareTitle.sol";
-import { console } from "lib/forge-std/src/console.sol";
+import {console} from "lib/forge-std/src/console.sol";
 
 contract DRBRareTitleTest is DRBCoordinatorStorageTest {
     RareTitle public s_drbRareTitle;
@@ -22,7 +22,7 @@ contract DRBRareTitleTest is DRBCoordinatorStorageTest {
             ton,
             tonReward
         );
-        
+
         _depositAndActivateAll();
         _fillGameBoard();
     }
@@ -174,23 +174,59 @@ contract DRBRareTitleTest is DRBCoordinatorStorageTest {
         } while (count > 0);
     }
 
-    function test_PlaySingleUser() public {
-        // WIP
-        address player = s_consumerAddresses[0];
+    function test_PlayOnceSingleUser() public {
+        uint256 maxTurns = s_drbRareTitle.MAX_NO_OF_TURNS();
         uint256 callbackGasLimit = s_drbRareTitle.CALLBACK_GAS_LIMIT();
         uint256 cost = s_drbCoordinator.estimateRequestPrice(
             callbackGasLimit,
             tx.gasprice
         );
+        address player = s_consumerAddresses[0];
+        uint256 playedTurns;
         uint256 randomNumber = _play(player, cost);
+        ++playedTurns;
         uint256 gameIndex = randomNumber % s_drbRareTitle.BOARD_SIZE();
         int16 expectedPoints = gameBoard[gameIndex];
         vm.startPrank(player);
         int16 actualPoints = s_drbRareTitle.viewTotalPoints();
+        uint256 actualRemainingTurns = s_drbRareTitle.viewRemainingTurns();
         vm.stopPrank();
         assertTrue(
             actualPoints == expectedPoints,
             "Actual Player points are not equal to expected value"
         );
+        assertTrue(
+            maxTurns - playedTurns == actualRemainingTurns,
+            "Actual remaining turns does not match expected remaining turns"
+        );
+    }
+
+    function test_PlayOnce5Users() public {
+        uint256 maxTurns = s_drbRareTitle.MAX_NO_OF_TURNS();
+        uint256 callbackGasLimit = s_drbRareTitle.CALLBACK_GAS_LIMIT();
+        uint256 cost = s_drbCoordinator.estimateRequestPrice(
+            callbackGasLimit,
+            tx.gasprice
+        );
+        for (uint256 i; i < s_consumerAddresses.length; ++i) {
+            address player = s_consumerAddresses[i];
+            uint256 playedTurns;
+            uint256 randomNumber = _play(player, cost);
+            ++playedTurns;
+            uint256 gameIndex = randomNumber % s_drbRareTitle.BOARD_SIZE();
+            int16 expectedPoints = gameBoard[gameIndex];
+            vm.startPrank(player);
+            int16 actualPoints = s_drbRareTitle.viewTotalPoints();
+            uint256 actualRemainingTurns = s_drbRareTitle.viewRemainingTurns();
+            vm.stopPrank();
+            assertTrue(
+                actualPoints == expectedPoints,
+                "Actual Player points are not equal to expected value"
+            );
+            assertTrue(
+                maxTurns - playedTurns == actualRemainingTurns,
+                "Actual remaining turns does not match expected remaining turns"
+            );
+        }
     }
 }
