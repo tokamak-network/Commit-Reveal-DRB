@@ -8,8 +8,6 @@ import {OptimismL1Fees} from "./OptimismL1Fees.sol";
 import {DRBConsumerBase} from "./DRBConsumerBase.sol";
 import {IDRBCoordinator} from "./interfaces/IDRBCoordinator.sol";
 
-import { console } from "lib/forge-std/src/console.sol";
-
 /// @title DRBCoordinator, distributed random beacon coordinator, using commit-reveal scheme
 /// @author Justin G
 

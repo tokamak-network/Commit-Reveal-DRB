@@ -12,6 +12,7 @@ contract DRBRareTitleTest is DRBCoordinatorStorageTest {
     MockTON public ton;
     uint256 public constant tonReward = 1e22;
     int8[] private gameBoard;
+    mapping(address => int16) private playerPoints;
 
     function setUp() public override {
         _setUp();
@@ -61,7 +62,10 @@ contract DRBRareTitleTest is DRBCoordinatorStorageTest {
         vm.startPrank(OWNER);
     }
 
-    function _play(address player, uint256 cost) internal returns (uint256 requestId, uint256 randomNumber) {
+    function _play(
+        address player,
+        uint256 cost
+    ) internal returns (uint256 requestId, uint256 randomNumber) {
         // request random no while playing
         vm.startPrank(player);
         s_drbRareTitle.play{value: cost}();
@@ -185,7 +189,7 @@ contract DRBRareTitleTest is DRBCoordinatorStorageTest {
         );
         address player = s_consumerAddresses[0];
         uint256 playedTurns;
-        (,uint256 randomNumber) = _play(player, cost);
+        (, uint256 randomNumber) = _play(player, cost);
         ++playedTurns;
         uint256 gameIndex = randomNumber % s_drbRareTitle.BOARD_SIZE();
         int16 expectedPoints = gameBoard[gameIndex];
@@ -238,7 +242,10 @@ contract DRBRareTitleTest is DRBCoordinatorStorageTest {
 
     function test_WithdrawTonWhenNotOwner() public {
         vm.startPrank(s_operatorAddresses[0]);
-        bytes memory revertData = abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, s_operatorAddresses[0]);
+        bytes memory revertData = abi.encodeWithSelector(
+            Ownable.OwnableUnauthorizedAccount.selector,
+            s_operatorAddresses[0]
+        );
         vm.expectRevert(revertData);
         s_drbRareTitle.withdrawTon();
         vm.stopPrank();
@@ -247,7 +254,10 @@ contract DRBRareTitleTest is DRBCoordinatorStorageTest {
     function test_WithdrawEthWhenNotOwner() public {
         vm.startPrank(s_operatorAddresses[0]);
 
-        bytes memory revertData = abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, s_operatorAddresses[0]);
+        bytes memory revertData = abi.encodeWithSelector(
+            Ownable.OwnableUnauthorizedAccount.selector,
+            s_operatorAddresses[0]
+        );
         vm.expectRevert(revertData);
 
         s_drbRareTitle.withdrawEth();
@@ -256,19 +266,29 @@ contract DRBRareTitleTest is DRBCoordinatorStorageTest {
 
     function test_WithdrawTonWhenOwner() public {
         uint256 ownerBalanceBefore = ton.balanceOf(OWNER);
-        uint256 contractTonBalanceBefore = ton.balanceOf(address(s_drbRareTitle));
+        uint256 contractTonBalanceBefore = ton.balanceOf(
+            address(s_drbRareTitle)
+        );
 
         s_drbRareTitle.withdrawTon();
 
         uint256 ownerBalanceAfter = ton.balanceOf(OWNER);
-        uint256 contractTonBalanceAfter = ton.balanceOf(address(s_drbRareTitle));
+        uint256 contractTonBalanceAfter = ton.balanceOf(
+            address(s_drbRareTitle)
+        );
 
-        assertTrue(ownerBalanceBefore + tonReward == ownerBalanceAfter, "Owner balance after withdrawing TON is not correct");
-        assertTrue(contractTonBalanceAfter + tonReward == contractTonBalanceBefore, "Contract balance after withdrawing TON is not correct");
+        assertTrue(
+            ownerBalanceBefore + tonReward == ownerBalanceAfter,
+            "Owner balance after withdrawing TON is not correct"
+        );
+        assertTrue(
+            contractTonBalanceAfter + tonReward == contractTonBalanceBefore,
+            "Contract balance after withdrawing TON is not correct"
+        );
         assertEq(contractTonBalanceAfter, 0);
     }
 
-        function test_WithdrawEthWhenOwner() public {
+    function test_WithdrawEthWhenOwner() public {
         uint256 amount = 1 ether;
         payable(address(s_drbRareTitle)).transfer(amount);
         uint256 ownerBalanceBefore = OWNER.balance;
@@ -279,15 +299,24 @@ contract DRBRareTitleTest is DRBCoordinatorStorageTest {
         uint256 ownerBalanceAfter = OWNER.balance;
         uint256 contractTonBalanceAfter = address(s_drbRareTitle).balance;
 
-        assertTrue(ownerBalanceBefore + amount == ownerBalanceAfter, "Owner balance after withdrawing Eth is not correct");
-        assertTrue(contractTonBalanceAfter + amount == contractTonBalanceBefore, "Contract balance after withdrawing Eth is not correct");
+        assertTrue(
+            ownerBalanceBefore + amount == ownerBalanceAfter,
+            "Owner balance after withdrawing Eth is not correct"
+        );
+        assertTrue(
+            contractTonBalanceAfter + amount == contractTonBalanceBefore,
+            "Contract balance after withdrawing Eth is not correct"
+        );
         assertEq(contractTonBalanceAfter, 0);
     }
 
     function test_UpdateGameExpiryWhenInvalidExpiry() public {
         uint256 newExpiry = 0;
 
-        bytes memory revertData = abi.encodeWithSelector(RareTitle.InvalidGameExpiry.selector, newExpiry);
+        bytes memory revertData = abi.encodeWithSelector(
+            RareTitle.InvalidGameExpiry.selector,
+            newExpiry
+        );
         vm.expectRevert(revertData);
 
         s_drbRareTitle.updateGameExpiry(newExpiry);
@@ -296,12 +325,15 @@ contract DRBRareTitleTest is DRBCoordinatorStorageTest {
     function test_UpdateGameExpiryWhenNotOwner() public {
         vm.startPrank(s_operatorAddresses[0]);
 
-        bytes memory revertData = abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, s_operatorAddresses[0]);
+        bytes memory revertData = abi.encodeWithSelector(
+            Ownable.OwnableUnauthorizedAccount.selector,
+            s_operatorAddresses[0]
+        );
         vm.expectRevert(revertData);
 
         uint256 newExpiry = block.timestamp + 1000;
         s_drbRareTitle.updateGameExpiry(newExpiry);
-        vm.stopPrank();    
+        vm.stopPrank();
     }
 
     function test_UpdateGameExpiryWhenOwner() public {
@@ -309,7 +341,10 @@ contract DRBRareTitleTest is DRBCoordinatorStorageTest {
         s_drbRareTitle.updateGameExpiry(newExpiry);
         uint256 actualExpiry = s_drbRareTitle.gameExpiry();
 
-        assertTrue(newExpiry == actualExpiry, "Actual game expiry does not match the expected value");
+        assertTrue(
+            newExpiry == actualExpiry,
+            "Actual game expiry does not match the expected value"
+        );
     }
 
     function test_lastRequestIdAfterUserPlay() public {
@@ -329,7 +364,10 @@ contract DRBRareTitleTest is DRBCoordinatorStorageTest {
 
         uint256 actualLastRequestId = s_drbRareTitle.getLastRequestId();
 
-        assertTrue(actualLastRequestId == expectedLastRequestId, "Actual lastRequestId is not equal to expected value");
+        assertTrue(
+            actualLastRequestId == expectedLastRequestId,
+            "Actual lastRequestId is not equal to expected value"
+        );
     }
 
     function test_RemainingTurnsForPlayer() public {
@@ -350,7 +388,10 @@ contract DRBRareTitleTest is DRBCoordinatorStorageTest {
         uint256 actualRemainingTurns = s_drbRareTitle.viewRemainingTurns();
         vm.stopPrank();
 
-        assertTrue(expectedRemainingTurns == actualRemainingTurns, "Actual remaining turns does not match the expected value");
+        assertTrue(
+            expectedRemainingTurns == actualRemainingTurns,
+            "Actual remaining turns does not match the expected value"
+        );
     }
 
     function test_PlayerTotalPoints() public {
@@ -364,16 +405,19 @@ contract DRBRareTitleTest is DRBCoordinatorStorageTest {
         int16 expectedTotalPoints;
 
         for (uint256 i; i < s_drbRareTitle.MAX_NO_OF_TURNS(); ++i) {
-          (, uint256 randomNumber) = _play(player, cost);
-          uint256 titleIndex = randomNumber % s_drbRareTitle.BOARD_SIZE();
-          expectedTotalPoints += gameBoard[titleIndex];
+            (, uint256 randomNumber) = _play(player, cost);
+            uint256 titleIndex = randomNumber % s_drbRareTitle.BOARD_SIZE();
+            expectedTotalPoints += gameBoard[titleIndex];
         }
 
         vm.startPrank(player);
         int16 actualPlayerPoints = s_drbRareTitle.viewTotalPoints();
         vm.stopPrank();
 
-        assertTrue(actualPlayerPoints == expectedTotalPoints, "Player total points does not match the expected value");
+        assertTrue(
+            actualPlayerPoints == expectedTotalPoints,
+            "Player total points does not match the expected value"
+        );
     }
 
     function test_RevealWinnerBeforeExpiry() public {
@@ -382,36 +426,118 @@ contract DRBRareTitleTest is DRBCoordinatorStorageTest {
         uint256 cost = s_drbCoordinator.estimateRequestPrice(
             callbackGasLimit,
             tx.gasprice
-        );    
+        );
 
         for (uint256 i; i < s_drbRareTitle.MAX_NO_OF_TURNS(); ++i) {
-          address player = s_consumerAddresses[i % s_consumerAddresses.length];
-          _play(player, cost);
+            address player = s_consumerAddresses[
+                i % s_consumerAddresses.length
+            ];
+            _play(player, cost);
         }
 
-        bytes memory revertData = abi.encodeWithSelector(RareTitle.GameNotExpired.selector);
+        bytes memory revertData = abi.encodeWithSelector(
+            RareTitle.GameNotExpired.selector
+        );
         vm.expectRevert(revertData);
         s_drbRareTitle.claimPrize();
     }
 
-    function test_ClaimPrizeMultipleTime() public { // WIP
+    function test_ClaimPrizeMultipleTime() public {
+        // WIP
         _depositAndActivateAll();
         uint256 callbackGasLimit = s_drbRareTitle.CALLBACK_GAS_LIMIT();
         uint256 cost = s_drbCoordinator.estimateRequestPrice(
             callbackGasLimit,
             tx.gasprice
-        );    
+        );
 
         for (uint256 i; i < s_drbRareTitle.MAX_NO_OF_TURNS(); ++i) {
-          address player = s_consumerAddresses[i % s_consumerAddresses.length];
-          _play(player, cost);
+            address player = s_consumerAddresses[
+                i % s_consumerAddresses.length
+            ];
+            _play(player, cost);
         }
 
-        _mine(100, 1);
+        vm.warp(block.timestamp + 100);
         s_drbRareTitle.claimPrize();
 
-        bytes memory revertData = abi.encodeWithSelector(RareTitle.RewardAlreadyClaimed.selector);
+        bytes memory revertData = abi.encodeWithSelector(
+            RareTitle.RewardAlreadyClaimed.selector
+        );
         vm.expectRevert(revertData);
         s_drbRareTitle.claimPrize();
+    }
+
+    function test_ClaimPrizeWhenNoTonRemaining() public {
+        s_drbRareTitle.withdrawTon();
+        _depositAndActivateAll();
+        uint256 callbackGasLimit = s_drbRareTitle.CALLBACK_GAS_LIMIT();
+        uint256 cost = s_drbCoordinator.estimateRequestPrice(
+            callbackGasLimit,
+            tx.gasprice
+        );
+
+        for (uint256 i; i < s_drbRareTitle.MAX_NO_OF_TURNS(); ++i) {
+            address player = s_consumerAddresses[
+                i % s_consumerAddresses.length
+            ];
+            _play(player, cost);
+        }
+
+        vm.warp(block.timestamp + 100);
+        bytes memory revertData = abi.encodeWithSelector(
+            RareTitle.InsufficientBalance.selector,
+            0,
+            tonReward
+        );
+        vm.expectRevert(revertData);
+        s_drbRareTitle.claimPrize();
+    }
+
+    function test_WinnerAfterMultiplePlayerPlays() public {
+        uint256 newExpiry = block.timestamp + 1000;
+        s_drbRareTitle.updateGameExpiry(newExpiry);
+        uint256 actualExpiry = s_drbRareTitle.gameExpiry();
+        _depositAndActivateAll();
+        address expectedWinner;
+        int16 winnerPoints;
+        uint256 callbackGasLimit = s_drbRareTitle.CALLBACK_GAS_LIMIT();
+        uint256 cost = s_drbCoordinator.estimateRequestPrice(
+            callbackGasLimit,
+            tx.gasprice
+        );
+
+        for (uint256 i; i < s_drbRareTitle.MAX_NO_OF_TURNS(); ++i) {
+            for (uint256 j; j < s_consumerAddresses.length; ++j) {
+                address player = s_consumerAddresses[j];
+                (, uint256 randomNumber) = _play(player, cost);
+                uint256 titleIndex = randomNumber % s_drbRareTitle.BOARD_SIZE();
+                int16 points = playerPoints[player] + gameBoard[titleIndex];
+                playerPoints[player] = points;
+                if (points > winnerPoints || expectedWinner == address(0)) {
+                    winnerPoints = points;
+                    expectedWinner = player;
+                }
+            }
+        }
+
+        uint256 tonBalanceBefore = ton.balanceOf(expectedWinner);
+        uint256 contractTonBalanceBefore = ton.balanceOf(
+            address(s_drbRareTitle)
+        );
+
+        vm.warp(block.timestamp + actualExpiry);
+        s_drbRareTitle.claimPrize();
+
+        uint256 tonBalanceAfter = ton.balanceOf(expectedWinner);
+        uint256 contractTonBalanceAfter = ton.balanceOf(
+            address(s_drbRareTitle)
+        );
+
+        assertTrue(
+            tonBalanceBefore + contractTonBalanceBefore == tonBalanceAfter,
+            "TON Balance after withdrawing does not match the expected value"
+        );
+        assertEq(contractTonBalanceAfter, 0);
     }
 }
