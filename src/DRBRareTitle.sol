@@ -60,7 +60,6 @@ contract RareTitle is DRBConsumerBase, ReentrancyGuard, Ownable {
     error InvalidGameExpiry(uint256 newGameExpiry);
     error UserTurnsExhausted(address user);
     error RequestNotFound(uint256 requestId);
-    error CallerIsNotWinner(address caller);
     error InsufficientBalance(uint256 required, uint256 actual);
     error GameNotActive();
     error GameNotExpired();
@@ -133,14 +132,14 @@ contract RareTitle is DRBConsumerBase, ReentrancyGuard, Ownable {
      *      The request ID is stored and associated with the player for later processing.
      * @notice Reverts with `UserTurnsExhausted` if the player has exhausted their allowed turns.
      */
-    function play() external payable gameActive {
+    function play() external payable gameActive returns(uint256 requestId) {
         User storage user = playerInfo[msg.sender];
         if (user.totalTurns == MAX_NO_OF_TURNS) {
             revert UserTurnsExhausted(msg.sender);
         }
         user.totalTurns++;
 
-        uint256 requestId = _requestRandomNumber(CALLBACK_GAS_LIMIT);
+        requestId = _requestRandomNumber(CALLBACK_GAS_LIMIT);
         RequestStatus storage request = s_requests[requestId];
         request.requested = true;
         request.player = msg.sender;
