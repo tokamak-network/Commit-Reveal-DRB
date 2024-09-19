@@ -163,9 +163,9 @@ contract RareTitle is DRBConsumerBase, ReentrancyGuard, Ownable {
             revert InsufficientBalance(balance, reward);
         }
 
-        tonToken.transfer(msg.sender, reward);
+        tonToken.transfer(winner, reward);
         rewardClaimed = true;
-        emit RewardClaimed(msg.sender, reward);
+        emit RewardClaimed(winner, reward);
     }
 
     /**
