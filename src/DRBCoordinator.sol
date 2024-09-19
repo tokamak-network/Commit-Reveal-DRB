@@ -293,7 +293,6 @@ contract DRBCoordinator is
         s_commitOrder[round][msg.sender] = commitLength;
         if (commitLength == s_activatedOperatorsAtRound[round].length - 1) {
             s_roundInfo[round].commitEndTime = block.timestamp;
-            console.log("s_roundInfo[round].commitEndTime",s_roundInfo[round].commitEndTime);
         }
         emit Commit(msg.sender, round);
     }
@@ -304,9 +303,6 @@ contract DRBCoordinator is
         require(s_revealOrder[round][msg.sender] == 0, AlreadyRevealed());
         uint256 commitEndTime = s_roundInfo[round].commitEndTime;
         uint256 commitLength = s_commits[round].length;
-        console.log("First condisiotn",block.timestamp > commitEndTime);
-        console.log("Second condition",block.timestamp <= commitEndTime + REVEAL_DURATION);
-        console.log("Commit time in coordinator", commitEndTime);
         require(
             (block.timestamp > commitEndTime &&
                 block.timestamp <= commitEndTime + REVEAL_DURATION),
