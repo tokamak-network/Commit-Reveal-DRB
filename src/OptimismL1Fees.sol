@@ -27,10 +27,10 @@ abstract contract OptimismL1Fees is Ownable {
     uint8 internal constant L1_GAS_FEES_LEGACY_MODE = 2;
     uint8 internal constant NOT_L2 = 3;
 
-    uint8 public s_l1FeeCalculationMode = 1;
+    uint8 internal s_l1FeeCalculationMode = 1;
 
     /// @dev L1 fee coefficient can be applied to options 2 or 3 to reduce possibly inflated gas price
-    uint8 public s_l1FeeCoefficient = 100;
+    uint8 internal s_l1FeeCoefficient = 100;
 
     error InvalidL1FeeCalculationMode(uint8 mode);
     error InvalidL1FeeCoefficient(uint8 coefficient);
@@ -42,6 +42,14 @@ abstract contract OptimismL1Fees is Ownable {
         uint8 coefficient
     ) external virtual onlyOwner {
         _setL1FeeCalculationInternal(mode, coefficient);
+    }
+
+    function getL1FeeCalculationMode()
+        external
+        view
+        returns (uint8 mode, uint8 coefficient)
+    {
+        return (s_l1FeeCalculationMode, s_l1FeeCoefficient);
     }
 
     function _setL1FeeCalculationInternal(

@@ -9,7 +9,7 @@ contract DRBCoordinatorStorage {
         uint256 cost;
         uint256 callbackGasLimit;
         uint256 minDepositForOperator;
-        uint256 refundCost;
+        uint256 requestAndRefundCost;
     }
 
     struct RoundInfo {
@@ -37,8 +37,7 @@ contract DRBCoordinatorStorage {
     mapping(uint256 round => mapping(address operator => uint256))
         internal s_revealOrder;
     address[] internal s_activatedOperators;
-    uint256[3] internal s_compensations;
-    uint256[2] internal s_returnAmountForOperators;
+    uint256 internal s_compensateAmount;
     uint256 internal s_currentRound;
     uint256 internal s_nextRound;
     uint256 internal s_premiumPercentage;
@@ -50,11 +49,12 @@ contract DRBCoordinatorStorage {
     uint256 internal constant COMMIT_DURATION = 5 minutes;
     uint256 internal constant REVEAL_DURATION = 10 minutes;
     uint256 internal constant TWOCOMMIT_TWOREVEAL_GASUSED = 511753;
-    uint256 internal constant TWOCOMMIT_TWOREVEAL_CALLDATA_SIZE_BYTES = 3200;
+    uint256 internal constant TWOCOMMIT_TWOREVEAL_CALLDATA_BYTES_SIZE = 556;
     uint256 internal constant ONECOMMIT_ONEREVEAL_GASUSED = 255877;
-    uint256 internal constant ONECOMMIT_ONEREVEAL_CALLDATA_SIZE_BYTES = 1600;
-    uint256 internal constant REFUND_GASUSED = 100_000;
-    uint256 internal constant REFUND_CALLDATA_SIZE_BYTES = 320;
+    uint256 internal constant ONECOMMIT_ONEREVEAL_CALLDATA_BYTES_SIZE = 278;
+    uint256 internal constant MAX_REQUEST_REFUND_GASUSED = 702530;
+    uint256 internal constant REQUEST_REFUND_CALLDATA_BYTES_SIZE = 214;
+    uint256 internal constant MAX_CALLBACK_GAS_LIMIT = 2500000;
     /// @dev 5k is plenty for an EXTCODESIZE call (2600) + warm CALL (100) and some arithmetic operations
     uint256 internal constant GAS_FOR_CALL_EXACT_CHECK = 5_000;
     uint256 internal constant MAX_ACTIVATED_OPERATORS = 7;
@@ -77,6 +77,7 @@ contract DRBCoordinatorStorage {
     error NotRefundable();
     error NotConsumer();
     error ACTIVATED_OPERATORS_LIMIT_REACHED();
+    error ExceedCallbackGasLimit();
 
     /// *** Events ***
     event RandomNumberRequested(uint256 round, address[] activatedOperators);
@@ -105,8 +106,8 @@ contract DRBCoordinatorStorage {
     }
 
     /// ** s_compensations
-    function getCompensations() external view returns (uint256[3] memory) {
-        return s_compensations;
+    function getCompensateAmount() external view returns (uint256) {
+        return s_compensateAmount;
     }
 
     /// ** s_depositAmount

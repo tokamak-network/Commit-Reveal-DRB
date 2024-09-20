@@ -315,11 +315,6 @@ contract DRBCoordinatorTest is DRBCoordinatorStorageTest {
         DRBCoordinator.RequestInfo memory requestInfo = s_drbCoordinator
             .getRequestInfo(requestId); //cost, minDepositForOperator
         uint256 minDepositAtRound = requestInfo.minDepositForOperator;
-        uint256[3] memory compensations = s_drbCoordinator.getCompensations();
-
-        uint256 maxCompensateAmount = compensations[2];
-        uint256 compensateAmount = compensations[0];
-        uint256 operatorReturnAmount = (maxCompensateAmount - compensateAmount);
 
         uint256[5] memory depositAmountsAfter;
         for (uint256 i; i < s_operatorAddresses.length; i++) {
@@ -327,15 +322,11 @@ contract DRBCoordinatorTest is DRBCoordinatorStorageTest {
                 s_operatorAddresses[i]
             );
             assertEq(
-                depositAmountsBefore[i] -
-                    minDepositAtRound +
-                    operatorReturnAmount,
+                depositAmountsBefore[i] - minDepositAtRound,
                 depositAmountsAfter[i]
             );
         }
-        uint256 slashedAmount = minDepositAtRound -
-            compensations[2] +
-            compensations[0];
+        uint256 slashedAmount = minDepositAtRound;
         for (uint256 i; i < s_operatorAddresses.length; i++) {
             uint256 updatedDepositAmount = depositAmountsBefore[i] -
                 slashedAmount;
@@ -398,13 +389,11 @@ contract DRBCoordinatorTest is DRBCoordinatorStorageTest {
         DRBCoordinator.RequestInfo memory requestInfo = s_drbCoordinator
             .getRequestInfo(requestId); //cost, minDepositForOperator
         uint256 minDepositAtRound = requestInfo.minDepositForOperator;
-        uint256[3] memory compensations = s_drbCoordinator.getCompensations();
-        uint256 L2_GETREFUND_GASUSED = 100_000;
+        uint256 compensateAmount = s_drbCoordinator.getCompensateAmount();
+        uint256 L2_GETREFUND_GASUSED = 702530;
         uint256 gasPrice = tx.gasprice;
         uint256 refundTx = gasPrice * L2_GETREFUND_GASUSED;
-        uint256 refundAmount = requestInfo.cost + refundTx + compensations[1];
-        uint256 maxCompensateAmount = compensations[2];
-        uint256 compensateAmount = compensations[1];
+        uint256 refundAmount = requestInfo.cost + refundTx + compensateAmount;
 
         assertEq(balanceAfter, balanceBefore + refundAmount, "balanceAfter");
 
@@ -414,14 +403,14 @@ contract DRBCoordinatorTest is DRBCoordinatorStorageTest {
                 s_operatorAddresses[i]
             );
         }
-        uint256 slashedAmount = minDepositAtRound -
-            maxCompensateAmount +
-            compensateAmount;
+        uint256 slashedAmount = minDepositAtRound;
         uint256 commitLength = s_drbCoordinator.getCommitsLength(requestId);
         uint256 uncommittedLength = activatedOperatorsLengthAtRound -
             commitLength;
         uint256 distributedSlashedAmount = ((slashedAmount *
-            uncommittedLength) - (refundTx + compensations[1])) / commitLength;
+            uncommittedLength) -
+            refundTx -
+            compensateAmount) / commitLength;
         for (uint256 i; i < s_operatorAddresses.length; i++) {
             bool isCommitted = s_drbCoordinator.getCommitOrder(
                 requestId,
@@ -523,13 +512,11 @@ contract DRBCoordinatorTest is DRBCoordinatorStorageTest {
         DRBCoordinator.RequestInfo memory requestInfo = s_drbCoordinator
             .getRequestInfo(requestId); //cost, minDepositForOperator
         uint256 minDepositAtRound = requestInfo.minDepositForOperator;
-        uint256[3] memory compensations = s_drbCoordinator.getCompensations();
-        uint256 L2_GETREFUND_GASUSED = 100_000;
+        uint256 compensateAmount = s_drbCoordinator.getCompensateAmount();
+        uint256 L2_GETREFUND_GASUSED = 702530;
         uint256 gasPrice = tx.gasprice;
         uint256 refundTx = gasPrice * L2_GETREFUND_GASUSED;
-        uint256 refundAmount = requestInfo.cost + refundTx + compensations[2];
-        uint256 maxCompensateAmount = compensations[2];
-        uint256 compensateAmount = compensations[2];
+        uint256 refundAmount = requestInfo.cost + refundTx + compensateAmount;
 
         assertEq(balanceAfter, balanceBefore + refundAmount, "balanceAfter");
 
@@ -539,15 +526,14 @@ contract DRBCoordinatorTest is DRBCoordinatorStorageTest {
                 s_operatorAddresses[i]
             );
         }
-        uint256 slashedAmount = minDepositAtRound -
-            maxCompensateAmount +
-            compensateAmount;
+        uint256 slashedAmount = minDepositAtRound;
         uint256 revealLength = s_drbCoordinator.getRevealsLength(requestId);
         uint256 unrevealedLength = s_drbCoordinator.getCommitsLength(
             requestId
         ) - revealLength;
         uint256 distributedSlashedAmount = ((slashedAmount * unrevealedLength) -
-            (refundTx + compensations[2])) / revealLength;
+            refundTx -
+            compensateAmount) / revealLength;
         for (uint256 i; i < s_operatorAddresses.length; i++) {
             bool isRevealed = s_drbCoordinator.getRevealOrder(
                 requestId,
