@@ -107,5 +107,14 @@ verfy-drb:
 	forge verify-contract --constructor-args CONSTRUCTOR_ARGS --verifier blockscout --verifier-url $(TITAN_SEPOLIA_EXPLORER) --rpc-url $(TITAN_SEPOLIA_URL) $(ADDRESS) DRBCoordinator
 
 verify-consumer-example:
-	@CONSTRUCTOR_ARGS=$$(cast abi-encode "constructor(address)" 0xb8A9e7279b7f134736668bE3394CDAe5DFaD9e62) \
+	@CONSTRUCTOR_ARGS=$$(cast abi-encode "constructor(address)" 0x2c9B09aD3Fd4f97a42A95cc91e9CA3F6C3AD9A6d) \
 	forge verify-contract --constructor-args CONSTRUCTOR_ARGS --verifier blockscout --verifier-url $(TITAN_SEPOLIA_EXPLORER) --rpc-url $(TITAN_SEPOLIA_URL) $(ADDRESS) ConsumerExample
+
+
+test: test-drbCoordinator test-drbCoordinatorGas
+
+test-drbCoordinator:
+	@forge test --mp test/staging/DRBCoordinator.t.sol --gas-limit 9999999999999999999 -vv
+
+test-drbCoordinatorGas:
+	@forge test --mp test/unit/DRBCoordinatorGas.t.sol --gas-limit 9999999999999999999 -vv --isolate
