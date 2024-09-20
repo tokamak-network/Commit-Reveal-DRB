@@ -11,10 +11,9 @@ contract NetworkHelperConfig is Script {
         uint256 flatFee;
         uint256 l1GasCostMode;
     }
-    address private constant OVM_GASPRICEORACLE_ADDR =
-        address(0x420000000000000000000000000000000000000F);
-    IOVM_GasPriceOracle internal constant OVM_GASPRICEORACLE =
-        IOVM_GasPriceOracle(OVM_GASPRICEORACLE_ADDR);
+
+    address private constant OVM_GASPRICEORACLE_ADDR = address(0x420000000000000000000000000000000000000F);
+    IOVM_GasPriceOracle internal constant OVM_GASPRICEORACLE = IOVM_GasPriceOracle(OVM_GASPRICEORACLE_ADDR);
     /// @dev This is the padding size for unsigned RLP-encoded transaction without the signature data
     /// @dev The padding size was estimated based on hypothetical max RLP-encoded transaction size
     uint256 internal constant L1_UNSIGNED_RLP_ENC_TX_DATA_BYTES_SIZE = 71;
@@ -33,87 +32,69 @@ contract NetworkHelperConfig is Script {
 
     constructor() {
         uint256 chainId = block.chainid;
-        if (chainId == 55007) activeNetworkConfig = getTitanSepoliaConfig();
-        else if (chainId == 55004) activeNetworkConfig = getTitanConfig();
-        else if (chainId == 111551119090)
+        if (chainId == 55007) {
+            activeNetworkConfig = getTitanSepoliaConfig();
+        } else if (chainId == 55004) {
+            activeNetworkConfig = getTitanConfig();
+        } else if (chainId == 111551119090) {
             activeNetworkConfig = getThanosSepoliaConfig();
-        else if (chainId == 31337) activeNetworkConfig = getAnvilConfig();
+        } else if (chainId == 31337) {
+            activeNetworkConfig = getAnvilConfig();
+        }
     }
 
     /// @dev native token ETH, Legacy network
-    function getTitanSepoliaConfig()
-        public
-        view
-        returns (NetworkConfig memory)
-    {
+    function getTitanSepoliaConfig() public view returns (NetworkConfig memory) {
         uint256 fixedL2GasPrice = 1;
         uint256 flatFee = 0.00001 ether;
         uint256 compensateAmount = 0.000005 ether;
 
         /// *** get L1 Gas
-        uint256 l1GasCost = _calculateLegacyL1DataFee(
-            ONECOMMIT_ONEREVEAL_CALLDATA_BYTES_SIZE +
-                REQUEST_REFUND_CALLDATA_BYTES_SIZE
-        );
+        uint256 l1GasCost =
+            _calculateLegacyL1DataFee(ONECOMMIT_ONEREVEAL_CALLDATA_BYTES_SIZE + REQUEST_REFUND_CALLDATA_BYTES_SIZE);
 
-        uint256 activationThreshold = fixedL2GasPrice *
-            (ONECOMMIT_ONEREVEAL_GASUSED +
-                MAX_CALLBACK_GAS_LIMIT +
-                MAX_REQUEST_REFUND_GASUSED) +
-            l1GasCost;
-        return
-            NetworkConfig({
-                activationThreshold: activationThreshold,
-                compensateAmount: compensateAmount,
-                flatFee: flatFee,
-                l1GasCostMode: 2
-            });
+        uint256 activationThreshold = fixedL2GasPrice
+            * (ONECOMMIT_ONEREVEAL_GASUSED + MAX_CALLBACK_GAS_LIMIT + MAX_REQUEST_REFUND_GASUSED) + l1GasCost;
+        return NetworkConfig({
+            activationThreshold: activationThreshold,
+            compensateAmount: compensateAmount,
+            flatFee: flatFee,
+            l1GasCostMode: 2
+        });
     }
 
     function getAnvilConfig() public view returns (NetworkConfig memory) {
         uint256 flatFee = 0.001 ether;
         uint256 compensateAmount = 0.0005 ether;
-        uint256 activationThreshold = tx.gasprice *
-            (ONECOMMIT_ONEREVEAL_GASUSED +
-                MAX_CALLBACK_GAS_LIMIT +
-                MAX_REQUEST_REFUND_GASUSED);
-        return
-            NetworkConfig({
-                activationThreshold: activationThreshold,
-                compensateAmount: compensateAmount,
-                flatFee: flatFee,
-                l1GasCostMode: 3
-            });
+        uint256 activationThreshold =
+            tx.gasprice * (ONECOMMIT_ONEREVEAL_GASUSED + MAX_CALLBACK_GAS_LIMIT + MAX_REQUEST_REFUND_GASUSED);
+        return NetworkConfig({
+            activationThreshold: activationThreshold,
+            compensateAmount: compensateAmount,
+            flatFee: flatFee,
+            l1GasCostMode: 3
+        });
     }
 
-    function getThanosSepoliaConfig()
-        public
-        view
-        returns (NetworkConfig memory)
-    {
+    function getThanosSepoliaConfig() public view returns (NetworkConfig memory) {
         uint256 fixedL2GasPrice = 1000252;
         uint256 flatFee = 0.00001 ether;
         uint256 compensateAmount = 0.000005 ether;
 
         /// *** get L1 Gas
         uint256 l1GasCost = _calculateOptimismL1DataFee(
-            ONECOMMIT_ONEREVEAL_CALLDATA_BYTES_SIZE +
-                REQUEST_REFUND_CALLDATA_BYTES_SIZE +
-                L1_UNSIGNED_RLP_ENC_TX_DATA_BYTES_SIZE
+            ONECOMMIT_ONEREVEAL_CALLDATA_BYTES_SIZE + REQUEST_REFUND_CALLDATA_BYTES_SIZE
+                + L1_UNSIGNED_RLP_ENC_TX_DATA_BYTES_SIZE
         );
 
-        uint256 activationThreshold = fixedL2GasPrice *
-            (ONECOMMIT_ONEREVEAL_GASUSED +
-                MAX_CALLBACK_GAS_LIMIT +
-                MAX_REQUEST_REFUND_GASUSED) +
-            l1GasCost;
-        return
-            NetworkConfig({
-                activationThreshold: activationThreshold,
-                compensateAmount: compensateAmount,
-                flatFee: flatFee,
-                l1GasCostMode: 1
-            });
+        uint256 activationThreshold = fixedL2GasPrice
+            * (ONECOMMIT_ONEREVEAL_GASUSED + MAX_CALLBACK_GAS_LIMIT + MAX_REQUEST_REFUND_GASUSED) + l1GasCost;
+        return NetworkConfig({
+            activationThreshold: activationThreshold,
+            compensateAmount: compensateAmount,
+            flatFee: flatFee,
+            l1GasCostMode: 1
+        });
     }
 
     function getTitanConfig() public view returns (NetworkConfig memory) {
@@ -122,32 +103,21 @@ contract NetworkHelperConfig is Script {
         uint256 compensateAmount = 0.0005 ether;
 
         /// *** get L1 Gas
-        uint256 l1GasCost = _calculateLegacyL1DataFee(
-            ONECOMMIT_ONEREVEAL_CALLDATA_BYTES_SIZE +
-                REQUEST_REFUND_CALLDATA_BYTES_SIZE
-        );
+        uint256 l1GasCost =
+            _calculateLegacyL1DataFee(ONECOMMIT_ONEREVEAL_CALLDATA_BYTES_SIZE + REQUEST_REFUND_CALLDATA_BYTES_SIZE);
 
-        uint256 activationThreshold = fixedL2GasPrice *
-            (ONECOMMIT_ONEREVEAL_GASUSED +
-                MAX_CALLBACK_GAS_LIMIT +
-                MAX_REQUEST_REFUND_GASUSED) +
-            l1GasCost;
-        return
-            NetworkConfig({
-                activationThreshold: activationThreshold,
-                compensateAmount: compensateAmount,
-                flatFee: flatFee,
-                l1GasCostMode: 2
-            });
+        uint256 activationThreshold = fixedL2GasPrice
+            * (ONECOMMIT_ONEREVEAL_GASUSED + MAX_CALLBACK_GAS_LIMIT + MAX_REQUEST_REFUND_GASUSED) + l1GasCost;
+        return NetworkConfig({
+            activationThreshold: activationThreshold,
+            compensateAmount: compensateAmount,
+            flatFee: flatFee,
+            l1GasCostMode: 2
+        });
     }
 
-    function _calculateLegacyL1DataFee(
-        uint256 calldataSizeBytes
-    ) internal view returns (uint256) {
-        uint256 l1GasUsed = (calldataSizeBytes +
-            L1_TX_SIGNATURE_DATA_BYTES_SIZE) *
-            16 +
-            OVM_GASPRICEORACLE.overhead();
+    function _calculateLegacyL1DataFee(uint256 calldataSizeBytes) internal view returns (uint256) {
+        uint256 l1GasUsed = (calldataSizeBytes + L1_TX_SIGNATURE_DATA_BYTES_SIZE) * 16 + OVM_GASPRICEORACLE.overhead();
         uint256 l1Fee = l1GasUsed * OVM_GASPRICEORACLE.l1BaseFee();
         uint256 divisor = 10 ** OVM_GASPRICEORACLE.decimals();
         uint256 unscaled = l1Fee * OVM_GASPRICEORACLE.scalar();
@@ -155,23 +125,15 @@ contract NetworkHelperConfig is Script {
         return scaled;
     }
 
-    function _calculateOptimismL1DataFee(
-        uint256 calldataSizeBytes
-    ) internal view returns (uint256) {
+    function _calculateOptimismL1DataFee(uint256 calldataSizeBytes) internal view returns (uint256) {
         // reference: https://docs.optimism.io/stack/transactions/fees#ecotone
         // also: https://github.com/ethereum-optimism/specs/blob/main/specs/protocol/exec-engine.md#ecotone-l1-cost-fee-changes-eip-4844-da
         // we treat all bytes in the calldata payload as non-zero bytes (cost: 16 gas) because accurate estimation is too expensive
         // we also have to account for the signature data size
-        uint256 l1GasUsed = (calldataSizeBytes +
-            L1_TX_SIGNATURE_DATA_BYTES_SIZE) * 16;
-        uint256 scaledBaseFee = OVM_GASPRICEORACLE.baseFeeScalar() *
-            16 *
-            OVM_GASPRICEORACLE.l1BaseFee();
-        uint256 scaledBlobBaseFee = OVM_GASPRICEORACLE.blobBaseFeeScalar() *
-            OVM_GASPRICEORACLE.blobBaseFee();
+        uint256 l1GasUsed = (calldataSizeBytes + L1_TX_SIGNATURE_DATA_BYTES_SIZE) * 16;
+        uint256 scaledBaseFee = OVM_GASPRICEORACLE.baseFeeScalar() * 16 * OVM_GASPRICEORACLE.l1BaseFee();
+        uint256 scaledBlobBaseFee = OVM_GASPRICEORACLE.blobBaseFeeScalar() * OVM_GASPRICEORACLE.blobBaseFee();
         uint256 fee = l1GasUsed * (scaledBaseFee + scaledBlobBaseFee);
-        return
-            (s_l1FeeCoefficient *
-                (fee / (16 * 10 ** OVM_GASPRICEORACLE.decimals()))) / 100;
+        return (s_l1FeeCoefficient * (fee / (16 * 10 ** OVM_GASPRICEORACLE.decimals()))) / 100;
     }
 }

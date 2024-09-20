@@ -19,23 +19,18 @@ contract DRBCoordinatorStorage {
     }
 
     /// *** State variables ***
-    mapping(uint256 round => address[] activatedOperators)
-        internal s_activatedOperatorsAtRound;
-    mapping(uint256 round => mapping(address operator => uint256))
-        internal s_activatedOperatorOrderAtRound;
+    mapping(uint256 round => address[] activatedOperators) internal s_activatedOperatorsAtRound;
+    mapping(uint256 round => mapping(address operator => uint256)) internal s_activatedOperatorOrderAtRound;
     mapping(uint256 round => RequestInfo requestInfo) internal s_requestInfo;
     mapping(uint256 round => RoundInfo roundInfo) internal s_roundInfo;
     mapping(uint256 round => bytes32[] commits) internal s_commits;
     mapping(uint256 round => bytes32[] reveals) internal s_reveals;
 
-    mapping(address operator => bool isForceDeactivated)
-        internal s_forceDeactivated;
+    mapping(address operator => bool isForceDeactivated) internal s_forceDeactivated;
     mapping(address operator => uint256 depositAmount) internal s_depositAmount;
     mapping(address operator => uint256) internal s_activatedOperatorOrder;
-    mapping(uint256 round => mapping(address operator => uint256))
-        internal s_commitOrder;
-    mapping(uint256 round => mapping(address operator => uint256))
-        internal s_revealOrder;
+    mapping(uint256 round => mapping(address operator => uint256)) internal s_commitOrder;
+    mapping(uint256 round => mapping(address operator => uint256)) internal s_revealOrder;
     address[] internal s_activatedOperators;
     uint256 internal s_compensateAmount;
     uint256 internal s_currentRound;
@@ -88,15 +83,7 @@ contract DRBCoordinatorStorage {
     event DeActivated(address operator);
 
     /// *** Getter Functions ***
-    function getDurations()
-        external
-        pure
-        returns (
-            uint256 maxWait,
-            uint256 commitDuration,
-            uint256 revealDuration
-        )
-    {
+    function getDurations() external pure returns (uint256 maxWait, uint256 commitDuration, uint256 revealDuration) {
         return (MAX_WAIT, COMMIT_DURATION, REVEAL_DURATION);
     }
 
@@ -111,16 +98,12 @@ contract DRBCoordinatorStorage {
     }
 
     /// ** s_depositAmount
-    function getDepositAmount(
-        address operator
-    ) external view returns (uint256) {
+    function getDepositAmount(address operator) external view returns (uint256) {
         return s_depositAmount[operator];
     }
 
     /// ** s_activatedOperatorOrder
-    function getActivatedOperatorIndex(
-        address operator
-    ) external view returns (uint256) {
+    function getActivatedOperatorIndex(address operator) external view returns (uint256) {
         return s_activatedOperatorOrder[operator];
     }
 
@@ -139,36 +122,26 @@ contract DRBCoordinatorStorage {
     }
 
     /// ** s_requestInfo
-    function getRequestInfo(
-        uint256 round
-    ) external view returns (RequestInfo memory) {
+    function getRequestInfo(uint256 round) external view returns (RequestInfo memory) {
         return s_requestInfo[round];
     }
 
     /// ** s_activatedOperatorsAtRound
-    function getActivatedOperatorsAtRound(
-        uint256 round
-    ) external view returns (address[] memory) {
+    function getActivatedOperatorsAtRound(uint256 round) external view returns (address[] memory) {
         return s_activatedOperatorsAtRound[round];
     }
 
-    function getActivatedOperatorsLengthAtRound(
-        uint256 round
-    ) external view returns (uint256) {
+    function getActivatedOperatorsLengthAtRound(uint256 round) external view returns (uint256) {
         return s_activatedOperatorsAtRound[round].length - 1;
     }
 
     /// ** s_roundInfo
-    function getRoundInfo(
-        uint256 round
-    ) external view returns (RoundInfo memory) {
+    function getRoundInfo(uint256 round) external view returns (RoundInfo memory) {
         return s_roundInfo[round];
     }
 
     /// ** s_commits
-    function getCommits(
-        uint256 round
-    ) external view returns (bytes32[] memory) {
+    function getCommits(uint256 round) external view returns (bytes32[] memory) {
         return s_commits[round];
     }
 
@@ -177,25 +150,17 @@ contract DRBCoordinatorStorage {
     }
 
     /// ** s_commitOrder
-    function getCommitOrder(
-        uint256 round,
-        address operator
-    ) external view returns (uint256) {
+    function getCommitOrder(uint256 round, address operator) external view returns (uint256) {
         return s_commitOrder[round][operator];
     }
 
     /// ** s_reveals
-    function getReveals(
-        uint256 round
-    ) external view returns (bytes32[] memory) {
+    function getReveals(uint256 round) external view returns (bytes32[] memory) {
         return s_reveals[round];
     }
 
     /// ** s_revealOrder
-    function getRevealOrder(
-        uint256 round,
-        address operator
-    ) external view returns (uint256) {
+    function getRevealOrder(uint256 round, address operator) external view returns (uint256) {
         return s_revealOrder[round][operator];
     }
 

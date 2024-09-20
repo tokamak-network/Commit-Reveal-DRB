@@ -36,62 +36,32 @@ contract DRBCoodinatorGasTest is BaseTest {
         for (uint256 i = 0; i < s_operatorAddresses.length; i++) {
             vm.deal(s_operatorAddresses[i], 10000 ether);
         }
-        s_drbCoordinator = new DRBCoordinator(
-            s_activationThreshold,
-            s_flatFee,
-            s_compensationAmount
-        );
+        s_drbCoordinator = new DRBCoordinator(s_activationThreshold, s_flatFee, s_compensationAmount);
         s_consumerExample = new ConsumerExample(address(s_drbCoordinator));
-        s_consumerExampleFulfillRandomWord = new ConsumerExampleFulfillRandomWord(
-            address(s_drbCoordinator)
-        );
+        s_consumerExampleFulfillRandomWord = new ConsumerExampleFulfillRandomWord(address(s_drbCoordinator));
         // ** set L1
         s_drbCoordinator.setL1FeeCalculation(3, 100);
     }
 
     function getCommitCalldata() public view returns (bytes memory) {
-        return
-            abi.encodeWithSelector(
-                s_drbCoordinator.commit.selector,
-                2 ** 128 - 1,
-                keccak256(abi.encodePacked(uint256(2 ** 128 - 1)))
-            );
+        return abi.encodeWithSelector(
+            s_drbCoordinator.commit.selector, 2 ** 128 - 1, keccak256(abi.encodePacked(uint256(2 ** 128 - 1)))
+        );
     }
 
     function getRevealCalldata() public view returns (bytes memory) {
-        return
-            abi.encodeWithSelector(
-                s_drbCoordinator.reveal.selector,
-                2 ** 128 - 1,
-                bytes32(uint256(2 ** 128 - 1))
-            );
+        return abi.encodeWithSelector(s_drbCoordinator.reveal.selector, 2 ** 128 - 1, bytes32(uint256(2 ** 128 - 1)));
     }
 
     function getRefundCalldata() public view returns (bytes memory) {
-        return
-            abi.encodeWithSelector(
-                s_drbCoordinator.getRefund.selector,
-                2 ** 128 - 1
-            );
+        return abi.encodeWithSelector(s_drbCoordinator.getRefund.selector, 2 ** 128 - 1);
     }
 
-    function getRequsetRandomNumberCalldata()
-        public
-        view
-        returns (bytes memory)
-    {
-        return
-            abi.encodeWithSelector(
-                s_drbCoordinator.requestRandomNumber.selector,
-                2500000
-            );
+    function getRequsetRandomNumberCalldata() public view returns (bytes memory) {
+        return abi.encodeWithSelector(s_drbCoordinator.requestRandomNumber.selector, 2500000);
     }
 
-    function get2commitrevealCalldata()
-        public
-        view
-        returns (bytes memory totalCalldata)
-    {
+    function get2commitrevealCalldata() public view returns (bytes memory totalCalldata) {
         bytes memory commitData = getCommitCalldata();
         bytes memory revealData = getRevealCalldata();
         totalCalldata = bytes.concat(
@@ -104,49 +74,29 @@ contract DRBCoodinatorGasTest is BaseTest {
             L1_FEE_DATA_PADDING,
             L1_FEE_DATA_PADDING
         );
-        console2.log(
-            "2commits2reveals calldata size in bytes",
-            totalCalldata.length
-        );
+        console2.log("2commits2reveals calldata size in bytes", totalCalldata.length);
         console2.log(
             "1commit11reveal calldata size in bytes",
-            bytes
-                .concat(
-                    commitData,
-                    revealData,
-                    L1_FEE_DATA_PADDING,
-                    L1_FEE_DATA_PADDING
-                )
-                .length
+            bytes.concat(commitData, revealData, L1_FEE_DATA_PADDING, L1_FEE_DATA_PADDING).length
         );
     }
 
     function getAllL1FeeCost() public view returns (uint256) {
-        return
-            optimismL1FeesExternal.getL1CostWeiForCalldataSize(
-                get2commitrevealCalldata().length
-            );
+        return optimismL1FeesExternal.getL1CostWeiForCalldataSize(get2commitrevealCalldata().length);
     }
 
     function getcommitL1FeeCost() public view returns (uint256) {
-        return
-            optimismL1FeesExternal.getL1CostWeiForCalldataSize(
-                getCommitCalldata().length
-            );
+        return optimismL1FeesExternal.getL1CostWeiForCalldataSize(getCommitCalldata().length);
     }
 
     function getrevealL1FeeCost() public view returns (uint256) {
-        return
-            optimismL1FeesExternal.getL1CostWeiForCalldataSize(
-                getRevealCalldata().length
-            );
+        return optimismL1FeesExternal.getL1CostWeiForCalldataSize(getRevealCalldata().length);
     }
 
     function testGas_CommitReveal() public {
         uint256 gasUsed;
         // ** make max operators commmit
-        uint256 maxActivatedOperators = s_drbCoordinator
-            .getMaxActivatedOperators();
+        uint256 maxActivatedOperators = s_drbCoordinator.getMaxActivatedOperators();
         vm.stopPrank();
         for (uint256 i = 0; i < maxActivatedOperators; i++) {
             address operator = s_operatorAddresses[i];
@@ -162,10 +112,7 @@ contract DRBCoodinatorGasTest is BaseTest {
         vm.startPrank(OWNER);
         // ** 1. requestRandomNumber 10 times
         uint256 callbackGasLimit = 100000;
-        uint256 cost = s_drbCoordinator.estimateRequestPrice(
-            callbackGasLimit,
-            tx.gasprice
-        );
+        uint256 cost = s_drbCoordinator.estimateRequestPrice(callbackGasLimit, tx.gasprice);
         console2.log("requestRandomNumber cost", cost);
         console2.log();
         for (uint256 i = 0; i < 10; i++) {
@@ -177,9 +124,7 @@ contract DRBCoodinatorGasTest is BaseTest {
 
         // ** 1.1 requestRandomNumber Directly 10 times
         for (uint256 i = 0; i < 10; i++) {
-            s_drbCoordinator.requestRandomNumber{value: cost}(
-                uint32(callbackGasLimit)
-            );
+            s_drbCoordinator.requestRandomNumber{value: cost}(uint32(callbackGasLimit));
             gasUsed = vm.lastCallGas().gasTotalUsed;
             console2.log("requestRandomNumber direct gasUsed", gasUsed);
         }
@@ -213,10 +158,7 @@ contract DRBCoodinatorGasTest is BaseTest {
         // ** Consumer Example fulfill gasUsed
         vm.startPrank(OWNER);
         for (uint256 i; i < 10; i++) {
-            s_consumerExampleFulfillRandomWord.rawFulfillRandomWords(
-                i,
-                uint256(keccak256(abi.encodePacked(i)))
-            );
+            s_consumerExampleFulfillRandomWord.rawFulfillRandomWords(i, uint256(keccak256(abi.encodePacked(i))));
             gasUsed = vm.lastCallGas().gasTotalUsed;
             console2.log("fulfillRandomWords gasUsed", gasUsed);
         }
@@ -237,18 +179,12 @@ contract DRBCoodinatorGasTest is BaseTest {
         s_drbCoordinator.setL1FeeCalculation(0, 100);
 
         bytes memory refundCalldata = getRefundCalldata();
-        console2.log(
-            "refundCalldata length in bytes",
-            bytes.concat(refundCalldata, L1_FEE_DATA_PADDING).length
-        );
+        console2.log("refundCalldata length in bytes", bytes.concat(refundCalldata, L1_FEE_DATA_PADDING).length);
 
-        bytes
-            memory requestRandomNumberCalldata = getRequsetRandomNumberCalldata();
+        bytes memory requestRandomNumberCalldata = getRequsetRandomNumberCalldata();
         console2.log(
             "requestRandomNumberCalldata length in bytes",
-            bytes
-                .concat(requestRandomNumberCalldata, L1_FEE_DATA_PADDING)
-                .length
+            bytes.concat(requestRandomNumberCalldata, L1_FEE_DATA_PADDING).length
         );
 
         uint256 allL1FeeCost = getAllL1FeeCost();
@@ -256,8 +192,7 @@ contract DRBCoodinatorGasTest is BaseTest {
     }
 
     function createMaxActivatedOperators() public {
-        uint256 maxActivatedOperators = s_drbCoordinator
-            .getMaxActivatedOperators();
+        uint256 maxActivatedOperators = s_drbCoordinator.getMaxActivatedOperators();
         vm.stopPrank();
         for (uint256 i = 0; i < maxActivatedOperators; i++) {
             address operator = s_operatorAddresses[i];
@@ -272,10 +207,7 @@ contract DRBCoodinatorGasTest is BaseTest {
         vm.startPrank(OWNER);
         // ** 1. requestRandomNumber 10 times
         uint256 callbackGasLimit = 100000;
-        uint256 cost = s_drbCoordinator.estimateRequestPrice(
-            callbackGasLimit,
-            tx.gasprice
-        );
+        uint256 cost = s_drbCoordinator.estimateRequestPrice(callbackGasLimit, tx.gasprice);
         for (uint256 i = 0; i < 10; i++) {
             s_consumerExample.requestRandomNumber{value: cost}();
         }
@@ -286,7 +218,7 @@ contract DRBCoodinatorGasTest is BaseTest {
         reqeustRandomNumber10Times();
 
         // ** increase time
-        (uint256 maxWait, , ) = s_drbCoordinator.getDurations();
+        (uint256 maxWait,,) = s_drbCoordinator.getDurations();
         vm.warp(block.timestamp + maxWait + 1);
         vm.roll(block.number + 1);
 
@@ -314,7 +246,7 @@ contract DRBCoodinatorGasTest is BaseTest {
         mine();
 
         // ** increase time
-        (, uint256 commitDuration, ) = s_drbCoordinator.getDurations();
+        (, uint256 commitDuration,) = s_drbCoordinator.getDurations();
         vm.warp(block.timestamp + commitDuration + 1);
         vm.roll(block.number + 1);
 
@@ -338,10 +270,7 @@ contract DRBCoodinatorGasTest is BaseTest {
             for (uint256 i; i < s_operatorAddresses.length; i++) {
                 operator = s_operatorAddresses[i];
                 vm.startPrank(operator);
-                s_drbCoordinator.commit(
-                    requestId,
-                    keccak256(abi.encodePacked(i))
-                );
+                s_drbCoordinator.commit(requestId, keccak256(abi.encodePacked(i)));
                 vm.stopPrank();
             }
         }
@@ -363,7 +292,7 @@ contract DRBCoodinatorGasTest is BaseTest {
         }
 
         // ** increase time
-        (, , uint256 revealDuration) = s_drbCoordinator.getDurations();
+        (,, uint256 revealDuration) = s_drbCoordinator.getDurations();
         vm.warp(block.timestamp + revealDuration + 1);
         vm.roll(block.number + 1);
 
@@ -402,12 +331,7 @@ contract DRBCoodinatorGasTest is BaseTest {
 
         networkConfig = networkHelperConfig.getAnvilConfig();
         console2.log("Anvil Config");
-        console2.log(
-            "activationThreshold(ether)",
-            "compensateAmount(ether)",
-            "flatFee(ether)",
-            "l1GasCostMode"
-        );
+        console2.log("activationThreshold(ether)", "compensateAmount(ether)", "flatFee(ether)", "l1GasCostMode");
         console2.log(
             castToEtherUnit(networkConfig.activationThreshold),
             castToEtherUnit(networkConfig.compensateAmount),
@@ -418,12 +342,7 @@ contract DRBCoodinatorGasTest is BaseTest {
         vm.selectFork(titanFork);
         networkConfig = networkHelperConfig.getTitanConfig();
         console2.log("Titan Config");
-        console2.log(
-            "activationThreshold(ether)",
-            "compensateAmount(ether)",
-            "flatFee(ether)",
-            "l1GasCostMode"
-        );
+        console2.log("activationThreshold(ether)", "compensateAmount(ether)", "flatFee(ether)", "l1GasCostMode");
         console2.log(
             castToEtherUnit(networkConfig.activationThreshold),
             castToEtherUnit(networkConfig.compensateAmount),
@@ -434,12 +353,7 @@ contract DRBCoodinatorGasTest is BaseTest {
         vm.selectFork(titanSepoliaFork);
         networkConfig = networkHelperConfig.getTitanSepoliaConfig();
         console2.log("Titan Sepolia Config");
-        console2.log(
-            "activationThreshold(ether)",
-            "compensateAmount(ether)",
-            "flatFee(ether)",
-            "l1GasCostMode"
-        );
+        console2.log("activationThreshold(ether)", "compensateAmount(ether)", "flatFee(ether)", "l1GasCostMode");
         console2.log(
             castToEtherUnit(networkConfig.activationThreshold),
             castToEtherUnit(networkConfig.compensateAmount),
@@ -450,12 +364,7 @@ contract DRBCoodinatorGasTest is BaseTest {
         vm.selectFork(thanosSepoliaFork);
         networkConfig = networkHelperConfig.getThanosSepoliaConfig();
         console2.log("Thanos Sepolia Config");
-        console2.log(
-            "activationThreshold(TON)",
-            "compensateAmount(TON)",
-            "flatFee(TON)",
-            "l1GasCostMode"
-        );
+        console2.log("activationThreshold(TON)", "compensateAmount(TON)", "flatFee(TON)", "l1GasCostMode");
         console2.log(
             castToEtherUnit(networkConfig.activationThreshold),
             castToEtherUnit(networkConfig.compensateAmount),

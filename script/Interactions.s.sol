@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
+
 import {Script, console2} from "forge-std/Script.sol";
 import {DevOpsTools} from "lib/foundry-devops/src/DevOpsTools.sol";
 import {DRBCoordinator} from "../src/DRBCoordinator.sol";
@@ -32,31 +33,16 @@ contract Utils is Script {
         0x2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6
     ];
 
-    function getContracts()
-        public
-        view
-        returns (DRBCoordinator drbCoordinator, ConsumerExample consumerExample)
-    {
-        drbCoordinator = DRBCoordinator(
-            DevOpsTools.get_most_recent_deployment(
-                "DRBCoordinator",
-                block.chainid
-            )
-        );
-        consumerExample = ConsumerExample(
-            payable(
-                DevOpsTools.get_most_recent_deployment(
-                    "ConsumerExample",
-                    block.chainid
-                )
-            )
-        );
+    function getContracts() public view returns (DRBCoordinator drbCoordinator, ConsumerExample consumerExample) {
+        drbCoordinator = DRBCoordinator(DevOpsTools.get_most_recent_deployment("DRBCoordinator", block.chainid));
+        consumerExample =
+            ConsumerExample(payable(DevOpsTools.get_most_recent_deployment("ConsumerExample", block.chainid)));
     }
 }
 
 contract SetL1FeeCalculation is Utils {
     function run() public {
-        (DRBCoordinator drbCoordinator, ) = getContracts();
+        (DRBCoordinator drbCoordinator,) = getContracts();
         uint256 deployer = anvilDefaultPrivateKeys[0];
         uint256 chainid = block.chainid;
         vm.startBroadcast(deployer);
@@ -69,7 +55,7 @@ contract SetL1FeeCalculation is Utils {
 
 contract ThreeDepositAndActivate is Utils {
     function run() public {
-        (DRBCoordinator drbCoordinator, ) = getContracts();
+        (DRBCoordinator drbCoordinator,) = getContracts();
         uint256 minDeposit = drbCoordinator.getMinDeposit();
         for (uint256 i = 0; i < 3; i++) {
             uint256 deployer = anvilDefaultPrivateKeys[i];
@@ -77,24 +63,17 @@ contract ThreeDepositAndActivate is Utils {
             drbCoordinator.depositAndActivate{value: minDeposit * 10}();
             vm.stopBroadcast();
         }
-        uint256 activatedOperatorsLength = drbCoordinator
-            .getActivatedOperatorsLength();
+        uint256 activatedOperatorsLength = drbCoordinator.getActivatedOperatorsLength();
         console2.log("Activated operators length:", activatedOperatorsLength);
     }
 }
 
 contract ConsumerRequestRandomNumber is Utils {
     function run() public {
-        (
-            DRBCoordinator drbCoordinator,
-            ConsumerExample consumerExample
-        ) = getContracts();
+        (DRBCoordinator drbCoordinator, ConsumerExample consumerExample) = getContracts();
         uint256 deployer = anvilDefaultPrivateKeys[0];
         uint256 callbackGasLimit = consumerExample.CALLBACK_GAS_LIMIT();
-        uint256 cost = drbCoordinator.estimateRequestPrice(
-            callbackGasLimit,
-            tx.gasprice
-        );
+        uint256 cost = drbCoordinator.estimateRequestPrice(callbackGasLimit, tx.gasprice);
         vm.startBroadcast(deployer);
         consumerExample.requestRandomNumber{value: cost}();
         vm.stopBroadcast();
@@ -103,15 +82,10 @@ contract ConsumerRequestRandomNumber is Utils {
     }
 
     function run(address consumerExampleAddress) public {
-        (DRBCoordinator drbCoordinator, ) = getContracts();
-        ConsumerExample consumerExample = ConsumerExample(
-            payable(consumerExampleAddress)
-        );
+        (DRBCoordinator drbCoordinator,) = getContracts();
+        ConsumerExample consumerExample = ConsumerExample(payable(consumerExampleAddress));
         uint256 callbackGasLimit = consumerExample.CALLBACK_GAS_LIMIT();
-        uint256 cost = drbCoordinator.estimateRequestPrice(
-            callbackGasLimit,
-            tx.gasprice
-        );
+        uint256 cost = drbCoordinator.estimateRequestPrice(callbackGasLimit, tx.gasprice);
         vm.startBroadcast();
         consumerExample.requestRandomNumber{value: cost}();
         vm.stopBroadcast();
@@ -122,7 +96,7 @@ contract ConsumerRequestRandomNumber is Utils {
 
 contract Commit is Utils {
     function run(uint256 round) public {
-        (DRBCoordinator drbCoordinator, ) = getContracts();
+        (DRBCoordinator drbCoordinator,) = getContracts();
         uint256 commitLength = drbCoordinator.getCommitsLength(round);
         uint256 operator = anvilDefaultPrivateKeys[commitLength];
 
@@ -146,12 +120,10 @@ contract Commit is Utils {
 
 contract Reveal is Utils {
     function run(uint256 round) public {
-        (DRBCoordinator drbCoordinator, ) = getContracts();
+        (DRBCoordinator drbCoordinator,) = getContracts();
         uint256 revealLength = drbCoordinator.getRevealsLength(round);
         uint256 operator = anvilDefaultPrivateKeys[revealLength];
-        DRBCoordinator.RoundInfo memory roundInfo = drbCoordinator.getRoundInfo(
-            round
-        );
+        DRBCoordinator.RoundInfo memory roundInfo = drbCoordinator.getRoundInfo(round);
         uint256 commitEndTime = roundInfo.commitEndTime;
 
         console2.log("commit end time:", commitEndTime);
@@ -167,20 +139,13 @@ contract Reveal is Utils {
         if (commitLength == revealLengthAfter) {
             console2.log("All operators have revealed");
             roundInfo = drbCoordinator.getRoundInfo(round);
-            console2.log(
-                "round:",
-                round,
-                " random number:",
-                roundInfo.randomNumber
-            );
+            console2.log("round:", round, " random number:", roundInfo.randomNumber);
         }
     }
 
     function run(uint256 round, address drbCoordinatorAddress) public {
         DRBCoordinator drbCoordinator = DRBCoordinator(drbCoordinatorAddress);
-        DRBCoordinator.RoundInfo memory roundInfo = drbCoordinator.getRoundInfo(
-            round
-        );
+        DRBCoordinator.RoundInfo memory roundInfo = drbCoordinator.getRoundInfo(round);
         uint256 commitEndTime = roundInfo.commitEndTime;
 
         console2.log("commit end time:", commitEndTime);
@@ -198,12 +163,7 @@ contract Reveal is Utils {
         if (commitLength == revealLengthAfter) {
             console2.log("All operators have revealed");
             roundInfo = drbCoordinator.getRoundInfo(round);
-            console2.log(
-                "round:",
-                round,
-                " random number:",
-                roundInfo.randomNumber
-            );
+            console2.log("round:", round, " random number:", roundInfo.randomNumber);
         }
     }
 }
@@ -232,11 +192,6 @@ contract Refund is Utils {
         consumerExample.getRefund(round);
         vm.stopBroadcast();
         uint256 consumerBalanceAfter = address(consumerExample).balance;
-        console2.log(
-            "Consumer balance before refund:",
-            consumerBalanceBefore,
-            "after refund:",
-            consumerBalanceAfter
-        );
+        console2.log("Consumer balance before refund:", consumerBalanceBefore, "after refund:", consumerBalanceAfter);
     }
 }

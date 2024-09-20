@@ -18,12 +18,7 @@ contract DRBRareTitleTest is DRBCoordinatorStorageTest {
         _setUp();
         ton = new MockTON("TON Token", "TON");
         ton.mint(OWNER, 1e24);
-        s_drbRareTitle = new RareTitle(
-            address(s_drbCoordinator),
-            block.timestamp + 100,
-            ton,
-            tonReward
-        );
+        s_drbRareTitle = new RareTitle(address(s_drbCoordinator), block.timestamp + 100, ton, tonReward);
 
         ton.transfer(address(s_drbRareTitle), tonReward);
         _fillGameBoard();
@@ -37,18 +32,14 @@ contract DRBRareTitleTest is DRBCoordinatorStorageTest {
     function _depositAndActivate(address operator) internal {
         vm.startPrank(operator);
         s_drbCoordinator.depositAndActivate{value: s_activationThreshold}();
-        address[] memory activatedOperators = s_drbCoordinator
-            .getActivatedOperators();
+        address[] memory activatedOperators = s_drbCoordinator.getActivatedOperators();
 
         assertTrue(
-            activatedOperators[
-                s_drbCoordinator.getActivatedOperatorIndex(operator)
-            ] == operator,
+            activatedOperators[s_drbCoordinator.getActivatedOperatorIndex(operator)] == operator,
             "Activated operator address donot match the passed operator"
         );
         assertTrue(
-            s_drbCoordinator.getDepositAmount(operator) ==
-                s_activationThreshold,
+            s_drbCoordinator.getDepositAmount(operator) == s_activationThreshold,
             "Deposited amount is not equal to activation threshold"
         );
         vm.stopPrank();
@@ -62,10 +53,7 @@ contract DRBRareTitleTest is DRBCoordinatorStorageTest {
         vm.startPrank(OWNER);
     }
 
-    function _play(
-        address player,
-        uint256 cost
-    ) internal returns (uint256 requestId, uint256 randomNumber) {
+    function _play(address player, uint256 cost) internal returns (uint256 requestId, uint256 randomNumber) {
         // request random no while playing
         vm.startPrank(player);
         s_drbRareTitle.play{value: cost}();
@@ -77,23 +65,16 @@ contract DRBRareTitleTest is DRBCoordinatorStorageTest {
             address operator = s_operatorAddresses[i];
             vm.startPrank(operator);
             bytes32 operatorSecret = bytes32(abi.encodePacked(i, player));
-            s_drbCoordinator.commit(
-                requestId,
-                keccak256(abi.encodePacked(operatorSecret))
-            );
+            s_drbCoordinator.commit(requestId, keccak256(abi.encodePacked(operatorSecret)));
             vm.stopPrank();
             uint256 gasUsed = vm.lastCallGas().gasTotalUsed;
             console.log("commit GasUsed", gasUsed);
             _mine(1, 1);
 
-            uint256 commitOrder = s_drbCoordinator.getCommitOrder(
-                requestId,
-                operator
-            );
+            uint256 commitOrder = s_drbCoordinator.getCommitOrder(requestId, operator);
             assertEq(commitOrder, i + 1);
         }
-        DRBCoordinator.RoundInfo memory roundInfo = s_drbCoordinator
-            .getRoundInfo(requestId);
+        DRBCoordinator.RoundInfo memory roundInfo = s_drbCoordinator.getRoundInfo(requestId);
         bytes32[] memory commits = s_drbCoordinator.getCommits(requestId);
         assertEq(commits.length, 5);
         assertEq(roundInfo.randomNumber, 0);
@@ -109,39 +90,22 @@ contract DRBRareTitleTest is DRBCoordinatorStorageTest {
             reveals[i] = secret;
             vm.stopPrank();
 
-            uint256 revealOrder = s_drbCoordinator.getRevealOrder(
-                requestId,
-                operator
-            );
+            uint256 revealOrder = s_drbCoordinator.getRevealOrder(requestId, operator);
             assertEq(revealOrder, i + 1);
         }
         randomNumber = uint256(keccak256(abi.encodePacked(reveals)));
-        bytes32[] memory revealsOnChain = s_drbCoordinator.getReveals(
-            requestId
-        );
+        bytes32[] memory revealsOnChain = s_drbCoordinator.getReveals(requestId);
         assertEq(revealsOnChain.length, 5);
         roundInfo = s_drbCoordinator.getRoundInfo(requestId);
         assertEq(roundInfo.randomNumber, randomNumber);
         assertEq(roundInfo.fulfillSucceeded, true);
 
         for (uint256 i; i < s_operatorAddresses.length; i++) {
-            uint256 depositAmount = s_drbCoordinator.getDepositAmount(
-                s_operatorAddresses[i]
-            );
+            uint256 depositAmount = s_drbCoordinator.getDepositAmount(s_operatorAddresses[i]);
             if (depositAmount < s_activationThreshold) {
-                assertEq(
-                    s_drbCoordinator.getActivatedOperatorIndex(
-                        s_operatorAddresses[i]
-                    ),
-                    0
-                );
+                assertEq(s_drbCoordinator.getActivatedOperatorIndex(s_operatorAddresses[i]), 0);
             } else {
-                assertEq(
-                    s_drbCoordinator.getActivatedOperatorIndex(
-                        s_operatorAddresses[i]
-                    ),
-                    i + 1
-                );
+                assertEq(s_drbCoordinator.getActivatedOperatorIndex(s_operatorAddresses[i]), i + 1);
             }
         }
     }
@@ -183,10 +147,7 @@ contract DRBRareTitleTest is DRBCoordinatorStorageTest {
         _depositAndActivateAll();
         uint256 maxTurns = s_drbRareTitle.MAX_NO_OF_TURNS();
         uint256 callbackGasLimit = s_drbRareTitle.CALLBACK_GAS_LIMIT();
-        uint256 cost = s_drbCoordinator.estimateRequestPrice(
-            callbackGasLimit,
-            tx.gasprice
-        );
+        uint256 cost = s_drbCoordinator.estimateRequestPrice(callbackGasLimit, tx.gasprice);
         address player = s_consumerAddresses[0];
         uint256 playedTurns;
         (, uint256 randomNumber) = _play(player, cost);
@@ -198,10 +159,7 @@ contract DRBRareTitleTest is DRBCoordinatorStorageTest {
         uint256 actualRemainingTurns = s_drbRareTitle.viewRemainingTurns();
         vm.stopPrank();
 
-        assertTrue(
-            actualPoints == expectedPoints,
-            "Actual Player points are not equal to expected value"
-        );
+        assertTrue(actualPoints == expectedPoints, "Actual Player points are not equal to expected value");
         assertTrue(
             maxTurns - playedTurns == actualRemainingTurns,
             "Actual remaining turns does not match expected remaining turns"
@@ -212,10 +170,7 @@ contract DRBRareTitleTest is DRBCoordinatorStorageTest {
         _depositAndActivateAll();
         uint256 maxTurns = s_drbRareTitle.MAX_NO_OF_TURNS();
         uint256 callbackGasLimit = s_drbRareTitle.CALLBACK_GAS_LIMIT();
-        uint256 cost = s_drbCoordinator.estimateRequestPrice(
-            callbackGasLimit,
-            tx.gasprice
-        );
+        uint256 cost = s_drbCoordinator.estimateRequestPrice(callbackGasLimit, tx.gasprice);
 
         for (uint256 i; i < s_consumerAddresses.length; ++i) {
             address player = s_consumerAddresses[i];
@@ -229,10 +184,7 @@ contract DRBRareTitleTest is DRBCoordinatorStorageTest {
             uint256 actualRemainingTurns = s_drbRareTitle.viewRemainingTurns();
             vm.stopPrank();
 
-            assertTrue(
-                actualPoints == expectedPoints,
-                "Actual Player points are not equal to expected value"
-            );
+            assertTrue(actualPoints == expectedPoints, "Actual Player points are not equal to expected value");
             assertTrue(
                 maxTurns - playedTurns == actualRemainingTurns,
                 "Actual remaining turns does not match expected remaining turns"
@@ -242,10 +194,8 @@ contract DRBRareTitleTest is DRBCoordinatorStorageTest {
 
     function test_WithdrawTonWhenNotOwner() public {
         vm.startPrank(s_operatorAddresses[0]);
-        bytes memory revertData = abi.encodeWithSelector(
-            Ownable.OwnableUnauthorizedAccount.selector,
-            s_operatorAddresses[0]
-        );
+        bytes memory revertData =
+            abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, s_operatorAddresses[0]);
         vm.expectRevert(revertData);
         s_drbRareTitle.withdrawTon();
         vm.stopPrank();
@@ -254,10 +204,8 @@ contract DRBRareTitleTest is DRBCoordinatorStorageTest {
     function test_WithdrawEthWhenNotOwner() public {
         vm.startPrank(s_operatorAddresses[0]);
 
-        bytes memory revertData = abi.encodeWithSelector(
-            Ownable.OwnableUnauthorizedAccount.selector,
-            s_operatorAddresses[0]
-        );
+        bytes memory revertData =
+            abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, s_operatorAddresses[0]);
         vm.expectRevert(revertData);
 
         s_drbRareTitle.withdrawEth();
@@ -266,20 +214,15 @@ contract DRBRareTitleTest is DRBCoordinatorStorageTest {
 
     function test_WithdrawTonWhenOwner() public {
         uint256 ownerBalanceBefore = ton.balanceOf(OWNER);
-        uint256 contractTonBalanceBefore = ton.balanceOf(
-            address(s_drbRareTitle)
-        );
+        uint256 contractTonBalanceBefore = ton.balanceOf(address(s_drbRareTitle));
 
         s_drbRareTitle.withdrawTon();
 
         uint256 ownerBalanceAfter = ton.balanceOf(OWNER);
-        uint256 contractTonBalanceAfter = ton.balanceOf(
-            address(s_drbRareTitle)
-        );
+        uint256 contractTonBalanceAfter = ton.balanceOf(address(s_drbRareTitle));
 
         assertTrue(
-            ownerBalanceBefore + tonReward == ownerBalanceAfter,
-            "Owner balance after withdrawing TON is not correct"
+            ownerBalanceBefore + tonReward == ownerBalanceAfter, "Owner balance after withdrawing TON is not correct"
         );
         assertTrue(
             contractTonBalanceAfter + tonReward == contractTonBalanceBefore,
@@ -300,8 +243,7 @@ contract DRBRareTitleTest is DRBCoordinatorStorageTest {
         uint256 contractTonBalanceAfter = address(s_drbRareTitle).balance;
 
         assertTrue(
-            ownerBalanceBefore + amount == ownerBalanceAfter,
-            "Owner balance after withdrawing Eth is not correct"
+            ownerBalanceBefore + amount == ownerBalanceAfter, "Owner balance after withdrawing Eth is not correct"
         );
         assertTrue(
             contractTonBalanceAfter + amount == contractTonBalanceBefore,
@@ -313,10 +255,7 @@ contract DRBRareTitleTest is DRBCoordinatorStorageTest {
     function test_UpdateGameExpiryWhenInvalidExpiry() public {
         uint256 newExpiry = 0;
 
-        bytes memory revertData = abi.encodeWithSelector(
-            RareTitle.InvalidGameExpiry.selector,
-            newExpiry
-        );
+        bytes memory revertData = abi.encodeWithSelector(RareTitle.InvalidGameExpiry.selector, newExpiry);
         vm.expectRevert(revertData);
 
         s_drbRareTitle.updateGameExpiry(newExpiry);
@@ -325,10 +264,8 @@ contract DRBRareTitleTest is DRBCoordinatorStorageTest {
     function test_UpdateGameExpiryWhenNotOwner() public {
         vm.startPrank(s_operatorAddresses[0]);
 
-        bytes memory revertData = abi.encodeWithSelector(
-            Ownable.OwnableUnauthorizedAccount.selector,
-            s_operatorAddresses[0]
-        );
+        bytes memory revertData =
+            abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, s_operatorAddresses[0]);
         vm.expectRevert(revertData);
 
         uint256 newExpiry = block.timestamp + 1000;
@@ -341,42 +278,30 @@ contract DRBRareTitleTest is DRBCoordinatorStorageTest {
         s_drbRareTitle.updateGameExpiry(newExpiry);
         uint256 actualExpiry = s_drbRareTitle.gameExpiry();
 
-        assertTrue(
-            newExpiry == actualExpiry,
-            "Actual game expiry does not match the expected value"
-        );
+        assertTrue(newExpiry == actualExpiry, "Actual game expiry does not match the expected value");
     }
 
     function test_lastRequestIdAfterUserPlay() public {
         _depositAndActivateAll();
         uint256 callbackGasLimit = s_drbRareTitle.CALLBACK_GAS_LIMIT();
-        uint256 cost = s_drbCoordinator.estimateRequestPrice(
-            callbackGasLimit,
-            tx.gasprice
-        );
+        uint256 cost = s_drbCoordinator.estimateRequestPrice(callbackGasLimit, tx.gasprice);
         uint256 expectedLastRequestId;
 
         for (uint256 i; i < s_consumerAddresses.length; ++i) {
             address player = s_consumerAddresses[i];
-            (expectedLastRequestId, ) = _play(player, cost);
+            (expectedLastRequestId,) = _play(player, cost);
             vm.stopPrank();
         }
 
         uint256 actualLastRequestId = s_drbRareTitle.getLastRequestId();
 
-        assertTrue(
-            actualLastRequestId == expectedLastRequestId,
-            "Actual lastRequestId is not equal to expected value"
-        );
+        assertTrue(actualLastRequestId == expectedLastRequestId, "Actual lastRequestId is not equal to expected value");
     }
 
     function test_RemainingTurnsForPlayer() public {
         _depositAndActivateAll();
         uint256 callbackGasLimit = s_drbRareTitle.CALLBACK_GAS_LIMIT();
-        uint256 cost = s_drbCoordinator.estimateRequestPrice(
-            callbackGasLimit,
-            tx.gasprice
-        );
+        uint256 cost = s_drbCoordinator.estimateRequestPrice(callbackGasLimit, tx.gasprice);
         address player = s_consumerAddresses[0];
 
         for (uint256 i; i < s_drbRareTitle.MAX_NO_OF_TURNS(); ++i) {
@@ -389,18 +314,14 @@ contract DRBRareTitleTest is DRBCoordinatorStorageTest {
         vm.stopPrank();
 
         assertTrue(
-            expectedRemainingTurns == actualRemainingTurns,
-            "Actual remaining turns does not match the expected value"
+            expectedRemainingTurns == actualRemainingTurns, "Actual remaining turns does not match the expected value"
         );
     }
 
     function test_PlayerTotalPoints() public {
         _depositAndActivateAll();
         uint256 callbackGasLimit = s_drbRareTitle.CALLBACK_GAS_LIMIT();
-        uint256 cost = s_drbCoordinator.estimateRequestPrice(
-            callbackGasLimit,
-            tx.gasprice
-        );
+        uint256 cost = s_drbCoordinator.estimateRequestPrice(callbackGasLimit, tx.gasprice);
         address player = s_consumerAddresses[0];
         int16 expectedTotalPoints;
 
@@ -414,30 +335,20 @@ contract DRBRareTitleTest is DRBCoordinatorStorageTest {
         int16 actualPlayerPoints = s_drbRareTitle.viewTotalPoints();
         vm.stopPrank();
 
-        assertTrue(
-            actualPlayerPoints == expectedTotalPoints,
-            "Player total points does not match the expected value"
-        );
+        assertTrue(actualPlayerPoints == expectedTotalPoints, "Player total points does not match the expected value");
     }
 
     function test_RevealWinnerBeforeExpiry() public {
         _depositAndActivateAll();
         uint256 callbackGasLimit = s_drbRareTitle.CALLBACK_GAS_LIMIT();
-        uint256 cost = s_drbCoordinator.estimateRequestPrice(
-            callbackGasLimit,
-            tx.gasprice
-        );
+        uint256 cost = s_drbCoordinator.estimateRequestPrice(callbackGasLimit, tx.gasprice);
 
         for (uint256 i; i < s_drbRareTitle.MAX_NO_OF_TURNS(); ++i) {
-            address player = s_consumerAddresses[
-                i % s_consumerAddresses.length
-            ];
+            address player = s_consumerAddresses[i % s_consumerAddresses.length];
             _play(player, cost);
         }
 
-        bytes memory revertData = abi.encodeWithSelector(
-            RareTitle.GameNotExpired.selector
-        );
+        bytes memory revertData = abi.encodeWithSelector(RareTitle.GameNotExpired.selector);
         vm.expectRevert(revertData);
         s_drbRareTitle.claimPrize();
     }
@@ -446,24 +357,17 @@ contract DRBRareTitleTest is DRBCoordinatorStorageTest {
         // WIP
         _depositAndActivateAll();
         uint256 callbackGasLimit = s_drbRareTitle.CALLBACK_GAS_LIMIT();
-        uint256 cost = s_drbCoordinator.estimateRequestPrice(
-            callbackGasLimit,
-            tx.gasprice
-        );
+        uint256 cost = s_drbCoordinator.estimateRequestPrice(callbackGasLimit, tx.gasprice);
 
         for (uint256 i; i < s_drbRareTitle.MAX_NO_OF_TURNS(); ++i) {
-            address player = s_consumerAddresses[
-                i % s_consumerAddresses.length
-            ];
+            address player = s_consumerAddresses[i % s_consumerAddresses.length];
             _play(player, cost);
         }
 
         vm.warp(block.timestamp + 100);
         s_drbRareTitle.claimPrize();
 
-        bytes memory revertData = abi.encodeWithSelector(
-            RareTitle.RewardAlreadyClaimed.selector
-        );
+        bytes memory revertData = abi.encodeWithSelector(RareTitle.RewardAlreadyClaimed.selector);
         vm.expectRevert(revertData);
         s_drbRareTitle.claimPrize();
     }
@@ -472,24 +376,15 @@ contract DRBRareTitleTest is DRBCoordinatorStorageTest {
         s_drbRareTitle.withdrawTon();
         _depositAndActivateAll();
         uint256 callbackGasLimit = s_drbRareTitle.CALLBACK_GAS_LIMIT();
-        uint256 cost = s_drbCoordinator.estimateRequestPrice(
-            callbackGasLimit,
-            tx.gasprice
-        );
+        uint256 cost = s_drbCoordinator.estimateRequestPrice(callbackGasLimit, tx.gasprice);
 
         for (uint256 i; i < s_drbRareTitle.MAX_NO_OF_TURNS(); ++i) {
-            address player = s_consumerAddresses[
-                i % s_consumerAddresses.length
-            ];
+            address player = s_consumerAddresses[i % s_consumerAddresses.length];
             _play(player, cost);
         }
 
         vm.warp(block.timestamp + 100);
-        bytes memory revertData = abi.encodeWithSelector(
-            RareTitle.InsufficientBalance.selector,
-            0,
-            tonReward
-        );
+        bytes memory revertData = abi.encodeWithSelector(RareTitle.InsufficientBalance.selector, 0, tonReward);
         vm.expectRevert(revertData);
         s_drbRareTitle.claimPrize();
     }
@@ -502,10 +397,7 @@ contract DRBRareTitleTest is DRBCoordinatorStorageTest {
         address expectedWinner;
         int16 winnerPoints;
         uint256 callbackGasLimit = s_drbRareTitle.CALLBACK_GAS_LIMIT();
-        uint256 cost = s_drbCoordinator.estimateRequestPrice(
-            callbackGasLimit,
-            tx.gasprice
-        );
+        uint256 cost = s_drbCoordinator.estimateRequestPrice(callbackGasLimit, tx.gasprice);
 
         for (uint256 i; i < s_drbRareTitle.MAX_NO_OF_TURNS(); ++i) {
             for (uint256 j; j < s_consumerAddresses.length; ++j) {
@@ -522,17 +414,13 @@ contract DRBRareTitleTest is DRBCoordinatorStorageTest {
         }
 
         uint256 tonBalanceBefore = ton.balanceOf(expectedWinner);
-        uint256 contractTonBalanceBefore = ton.balanceOf(
-            address(s_drbRareTitle)
-        );
+        uint256 contractTonBalanceBefore = ton.balanceOf(address(s_drbRareTitle));
 
         vm.warp(block.timestamp + actualExpiry);
         s_drbRareTitle.claimPrize();
 
         uint256 tonBalanceAfter = ton.balanceOf(expectedWinner);
-        uint256 contractTonBalanceAfter = ton.balanceOf(
-            address(s_drbRareTitle)
-        );
+        uint256 contractTonBalanceAfter = ton.balanceOf(address(s_drbRareTitle));
 
         assertTrue(
             tonBalanceBefore + contractTonBalanceBefore == tonBalanceAfter,

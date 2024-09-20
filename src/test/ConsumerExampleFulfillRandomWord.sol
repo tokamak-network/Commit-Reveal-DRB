@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
+
 import {IDRBCoordinator} from "../interfaces/IDRBCoordinator.sol";
 
 contract ConsumerExampleFulfillRandomWord {
@@ -9,8 +10,7 @@ contract ConsumerExampleFulfillRandomWord {
         uint256 randomNumber;
     }
 
-    mapping(uint256 => RequestStatus)
-        public s_requests; /* requestId --> requestStatus */
+    mapping(uint256 => RequestStatus) public s_requests; /* requestId --> requestStatus */
 
     // past requests Id.
     uint256[] public requestIds;
@@ -31,21 +31,12 @@ contract ConsumerExampleFulfillRandomWord {
         }
     }
 
-    function rawFulfillRandomWords(
-        uint256 requestId,
-        uint256 randomNumber
-    ) external {
-        require(
-            msg.sender == s_owner,
-            OnlyCoordinatorCanFulfill(msg.sender, address(i_drbCoordinator))
-        );
+    function rawFulfillRandomWords(uint256 requestId, uint256 randomNumber) external {
+        require(msg.sender == s_owner, OnlyCoordinatorCanFulfill(msg.sender, address(i_drbCoordinator)));
         fulfillRandomWords(requestId, randomNumber);
     }
 
-    function fulfillRandomWords(
-        uint256 requestId,
-        uint256 hashedOmegaVal
-    ) internal {
+    function fulfillRandomWords(uint256 requestId, uint256 hashedOmegaVal) internal {
         if (!s_requests[requestId].requested) {
             revert InvalidRequest(requestId);
         }

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
+
 import {DRBConsumerBase} from "./DRBConsumerBase.sol";
 
 contract ConsumerExample is DRBConsumerBase {
@@ -9,8 +10,7 @@ contract ConsumerExample is DRBConsumerBase {
         uint256 randomNumber;
     }
 
-    mapping(uint256 => RequestStatus)
-        public s_requests; /* requestId --> requestStatus */
+    mapping(uint256 => RequestStatus) public s_requests; /* requestId --> requestStatus */
 
     // past requests Id.
     uint256[] public requestIds;
@@ -24,10 +24,7 @@ contract ConsumerExample is DRBConsumerBase {
         requestIds.push(requestId);
     }
 
-    function fulfillRandomWords(
-        uint256 requestId,
-        uint256 hashedOmegaVal
-    ) internal override {
+    function fulfillRandomWords(uint256 requestId, uint256 hashedOmegaVal) internal override {
         if (!s_requests[requestId].requested) {
             revert InvalidRequest(requestId);
         }
@@ -39,9 +36,7 @@ contract ConsumerExample is DRBConsumerBase {
         return address(i_drbCoordinator);
     }
 
-    function getRequestStatus(
-        uint256 _requestId
-    ) external view returns (bool, bool, uint256) {
+    function getRequestStatus(uint256 _requestId) external view returns (bool, bool, uint256) {
         RequestStatus memory request = s_requests[_requestId];
         return (request.requested, request.fulfilled, request.randomNumber);
     }
@@ -51,8 +46,6 @@ contract ConsumerExample is DRBConsumerBase {
     }
 
     function lastRequestId() external view returns (uint256 requestId) {
-        requestId = requestIds.length == 0
-            ? 0
-            : requestIds[requestIds.length - 1];
+        requestId = requestIds.length == 0 ? 0 : requestIds[requestIds.length - 1];
     }
 }

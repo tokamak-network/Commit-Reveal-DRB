@@ -6,23 +6,11 @@ import {DRBCoordinator} from "../src/DRBCoordinator.sol";
 import {NetworkHelperConfig} from "./NetworkHelperConfig.s.sol";
 
 contract DeployDRBCoordinator is Script {
-    function deployDRBCoordinatorUsingConfig()
-        internal
-        returns (DRBCoordinator drbCoordinator)
-    {
+    function deployDRBCoordinatorUsingConfig() internal returns (DRBCoordinator drbCoordinator) {
         NetworkHelperConfig networkHelperConfig = new NetworkHelperConfig();
-        (
-            uint256 activationThreshold,
-            uint256 compensateAmount,
-            uint256 flatFee,
-            uint256 l1GasCostMode
-        ) = networkHelperConfig.activeNetworkConfig();
-        drbCoordinator = deployDRBCoordinator(
-            activationThreshold,
-            flatFee,
-            compensateAmount,
-            l1GasCostMode
-        );
+        (uint256 activationThreshold, uint256 compensateAmount, uint256 flatFee, uint256 l1GasCostMode) =
+            networkHelperConfig.activeNetworkConfig();
+        drbCoordinator = deployDRBCoordinator(activationThreshold, flatFee, compensateAmount, l1GasCostMode);
     }
 
     function deployDRBCoordinator(
@@ -32,13 +20,9 @@ contract DeployDRBCoordinator is Script {
         uint256 l1GasCostMode
     ) internal returns (DRBCoordinator drbCoordinator) {
         vm.startBroadcast();
-        drbCoordinator = new DRBCoordinator(
-            activationThreshold,
-            flatFee,
-            compensateAmount
-        );
+        drbCoordinator = new DRBCoordinator(activationThreshold, flatFee, compensateAmount);
         vm.stopBroadcast();
-        (uint8 mode, ) = drbCoordinator.getL1FeeCalculationMode();
+        (uint8 mode,) = drbCoordinator.getL1FeeCalculationMode();
         if (uint256(mode) != l1GasCostMode) {
             vm.startBroadcast();
             drbCoordinator.setL1FeeCalculation(uint8(l1GasCostMode), 100);

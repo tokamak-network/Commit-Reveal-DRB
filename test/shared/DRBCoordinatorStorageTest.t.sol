@@ -21,11 +21,7 @@ abstract contract DRBCoordinatorStorageTest is BaseTest {
             vm.deal(s_operatorAddresses[i], 10000 ether);
             vm.deal(s_consumerAddresses[i], 10000 ether);
         }
-        s_drbCoordinator = new DRBCoordinator(
-            s_activationThreshold,
-            s_flatFee,
-            s_compensateAmount
-        );
+        s_drbCoordinator = new DRBCoordinator(s_activationThreshold, s_flatFee, s_compensateAmount);
         // s_consumerExample = new ConsumerExample(address(s_drbCoordinator));
 
         // ** set L1

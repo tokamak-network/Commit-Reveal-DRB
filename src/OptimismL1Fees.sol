@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
+
 import {IOVM_GasPriceOracle} from "./interfaces/IOVM_GasPriceOracle.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
@@ -15,10 +16,8 @@ abstract contract OptimismL1Fees is Ownable {
     //     hex"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
     /// @dev OVM_GASPRICEORACLE_ADDR is the address of the OVM_GasPriceOracle precompile on Optimism.
     /// @dev reference: https://community.optimism.io/docs/developers/build/transaction-fees/#estimating-the-l1-data-fee
-    address private constant OVM_GASPRICEORACLE_ADDR =
-        address(0x420000000000000000000000000000000000000F);
-    IOVM_GasPriceOracle internal constant OVM_GASPRICEORACLE =
-        IOVM_GasPriceOracle(OVM_GASPRICEORACLE_ADDR);
+    address private constant OVM_GASPRICEORACLE_ADDR = address(0x420000000000000000000000000000000000000F);
+    IOVM_GasPriceOracle internal constant OVM_GASPRICEORACLE = IOVM_GasPriceOracle(OVM_GASPRICEORACLE_ADDR);
 
     // mode
     /// @dev  getL1FeeUpperBound() function from predeploy GasPriceOracle contract (available after Fjord upgrade)
@@ -37,25 +36,15 @@ abstract contract OptimismL1Fees is Ownable {
 
     event L1FeeCalculationSet(uint8 mode, uint8 coefficient);
 
-    function setL1FeeCalculation(
-        uint8 mode,
-        uint8 coefficient
-    ) external virtual onlyOwner {
+    function setL1FeeCalculation(uint8 mode, uint8 coefficient) external virtual onlyOwner {
         _setL1FeeCalculationInternal(mode, coefficient);
     }
 
-    function getL1FeeCalculationMode()
-        external
-        view
-        returns (uint8 mode, uint8 coefficient)
-    {
+    function getL1FeeCalculationMode() external view returns (uint8 mode, uint8 coefficient) {
         return (s_l1FeeCalculationMode, s_l1FeeCoefficient);
     }
 
-    function _setL1FeeCalculationInternal(
-        uint8 mode,
-        uint8 coefficient
-    ) internal {
+    function _setL1FeeCalculationInternal(uint8 mode, uint8 coefficient) internal {
         if (mode >= 4) {
             revert InvalidL1FeeCalculationMode(mode);
         }
@@ -69,65 +58,43 @@ abstract contract OptimismL1Fees is Ownable {
         emit L1FeeCalculationSet(mode, coefficient);
     }
 
-    function _getL1CostWeiForCalldataSize(
-        uint256 calldataSizeBytes
-    ) internal view returns (uint256) {
+    function _getL1CostWeiForCalldataSize(uint256 calldataSizeBytes) internal view returns (uint256) {
         uint8 l1FeeCalculationMode = s_l1FeeCalculationMode;
         if (l1FeeCalculationMode == L1_GAS_FEES_ECOTONE_MODE) {
             // estimate based on unsigned fully RLP-encoded transaction size so we have to account for paddding bytes as well
-            return
-                _calculateOptimismL1DataFee(
-                    calldataSizeBytes + L1_UNSIGNED_RLP_ENC_TX_DATA_BYTES_SIZE
-                );
+            return _calculateOptimismL1DataFee(calldataSizeBytes + L1_UNSIGNED_RLP_ENC_TX_DATA_BYTES_SIZE);
         } else if (l1FeeCalculationMode == L1_GAS_FEES_UPPER_BOUND_MODE) {
             // getL1FeeUpperBound expects unsigned fully RLP-encoded transaction size so we have to account for paddding bytes as well
-            return
-                OVM_GASPRICEORACLE.getL1FeeUpperBound(
-                    calldataSizeBytes + L1_UNSIGNED_RLP_ENC_TX_DATA_BYTES_SIZE
-                );
-        } else if (l1FeeCalculationMode == L1_GAS_FEES_LEGACY_MODE)
+            return OVM_GASPRICEORACLE.getL1FeeUpperBound(calldataSizeBytes + L1_UNSIGNED_RLP_ENC_TX_DATA_BYTES_SIZE);
+        } else if (l1FeeCalculationMode == L1_GAS_FEES_LEGACY_MODE) {
             return _calculateLegacyL1DataFee(calldataSizeBytes);
-        else return 0;
+        } else {
+            return 0;
+        }
     }
 
-    function _getOptimismL1UpperBoundDataFee(
-        uint256 calldataSizeBytes
-    ) internal view returns (uint256) {
+    function _getOptimismL1UpperBoundDataFee(uint256 calldataSizeBytes) internal view returns (uint256) {
         // getL1FeeUpperBound expects unsigned fully RLP-encoded transaction size so we have to account for padding bytes as well
-        return
-            (s_l1FeeCoefficient *
-                OVM_GASPRICEORACLE.getL1FeeUpperBound(
-                    calldataSizeBytes + L1_UNSIGNED_RLP_ENC_TX_DATA_BYTES_SIZE
-                )) / 100;
+        return (
+            s_l1FeeCoefficient
+                * OVM_GASPRICEORACLE.getL1FeeUpperBound(calldataSizeBytes + L1_UNSIGNED_RLP_ENC_TX_DATA_BYTES_SIZE)
+        ) / 100;
     }
 
-    function _calculateOptimismL1DataFee(
-        uint256 calldataSizeBytes
-    ) internal view returns (uint256) {
+    function _calculateOptimismL1DataFee(uint256 calldataSizeBytes) internal view returns (uint256) {
         // reference: https://docs.optimism.io/stack/transactions/fees#ecotone
         // also: https://github.com/ethereum-optimism/specs/blob/main/specs/protocol/exec-engine.md#ecotone-l1-cost-fee-changes-eip-4844-da
         // we treat all bytes in the calldata payload as non-zero bytes (cost: 16 gas) because accurate estimation is too expensive
         // we also have to account for the signature data size
-        uint256 l1GasUsed = (calldataSizeBytes +
-            L1_TX_SIGNATURE_DATA_BYTES_SIZE) * 16;
-        uint256 scaledBaseFee = OVM_GASPRICEORACLE.baseFeeScalar() *
-            16 *
-            OVM_GASPRICEORACLE.l1BaseFee();
-        uint256 scaledBlobBaseFee = OVM_GASPRICEORACLE.blobBaseFeeScalar() *
-            OVM_GASPRICEORACLE.blobBaseFee();
+        uint256 l1GasUsed = (calldataSizeBytes + L1_TX_SIGNATURE_DATA_BYTES_SIZE) * 16;
+        uint256 scaledBaseFee = OVM_GASPRICEORACLE.baseFeeScalar() * 16 * OVM_GASPRICEORACLE.l1BaseFee();
+        uint256 scaledBlobBaseFee = OVM_GASPRICEORACLE.blobBaseFeeScalar() * OVM_GASPRICEORACLE.blobBaseFee();
         uint256 fee = l1GasUsed * (scaledBaseFee + scaledBlobBaseFee);
-        return
-            (s_l1FeeCoefficient *
-                (fee / (16 * 10 ** OVM_GASPRICEORACLE.decimals()))) / 100;
+        return (s_l1FeeCoefficient * (fee / (16 * 10 ** OVM_GASPRICEORACLE.decimals()))) / 100;
     }
 
-    function _calculateLegacyL1DataFee(
-        uint256 calldataSizeBytes
-    ) internal view returns (uint256) {
-        uint256 l1GasUsed = (calldataSizeBytes +
-            L1_TX_SIGNATURE_DATA_BYTES_SIZE) *
-            16 +
-            OVM_GASPRICEORACLE.overhead();
+    function _calculateLegacyL1DataFee(uint256 calldataSizeBytes) internal view returns (uint256) {
+        uint256 l1GasUsed = (calldataSizeBytes + L1_TX_SIGNATURE_DATA_BYTES_SIZE) * 16 + OVM_GASPRICEORACLE.overhead();
         uint256 l1Fee = l1GasUsed * OVM_GASPRICEORACLE.l1BaseFee();
         uint256 divisor = 10 ** OVM_GASPRICEORACLE.decimals();
         uint256 unscaled = l1Fee * OVM_GASPRICEORACLE.scalar();

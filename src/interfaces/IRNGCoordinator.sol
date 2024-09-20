@@ -9,11 +9,7 @@ pragma solidity ^0.8.26;
  *    2. Commit: participants commit their value
  */
 interface IRNGCoordinator {
-    function requestRandomWordDirectFunding(
-        uint32 _callbackGasLimit
-    ) external payable returns (uint256);
+    function requestRandomWordDirectFunding(uint32 _callbackGasLimit) external payable returns (uint256);
 
-    function calculateDirectFundingPrice(
-        uint32 _callbackGasLimit
-    ) external view returns (uint256);
+    function calculateDirectFundingPrice(uint32 _callbackGasLimit) external view returns (uint256);
 }

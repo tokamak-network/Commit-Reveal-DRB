@@ -93,12 +93,10 @@ contract RareTitle is DRBConsumerBase, ReentrancyGuard, Ownable {
     /**
      * @dev Initializes the game board and sets initial values.
      */
-    constructor(
-        address _rngCoordinator,
-        uint256 _gameExpiry,
-        IERC20 _ton,
-        uint256 _reward
-    ) DRBConsumerBase(_rngCoordinator) Ownable(msg.sender) {
+    constructor(address _rngCoordinator, uint256 _gameExpiry, IERC20 _ton, uint256 _reward)
+        DRBConsumerBase(_rngCoordinator)
+        Ownable(msg.sender)
+    {
         _initializeBoard();
 
         require(_gameExpiry != 0, InvalidGameExpiry(_gameExpiry));
@@ -111,17 +109,17 @@ contract RareTitle is DRBConsumerBase, ReentrancyGuard, Ownable {
         reward = _reward;
     }
 
-    function viewTotalPoints() public view returns(int16 totalPoints) {
+    function viewTotalPoints() public view returns (int16 totalPoints) {
         User memory user = playerInfo[msg.sender];
         totalPoints = user.totalPoints;
     }
 
-    function viewRemainingTurns() public view returns(uint256 remainingTurns) {
+    function viewRemainingTurns() public view returns (uint256 remainingTurns) {
         User memory user = playerInfo[msg.sender];
         remainingTurns = MAX_NO_OF_TURNS - user.totalTurns;
     }
 
-    function getLastRequestId() public view returns(uint256 requestId) {
+    function getLastRequestId() public view returns (uint256 requestId) {
         requestId = requestIds[requestIds.length - 1];
     }
 
@@ -132,7 +130,7 @@ contract RareTitle is DRBConsumerBase, ReentrancyGuard, Ownable {
      *      The request ID is stored and associated with the player for later processing.
      * @notice Reverts with `UserTurnsExhausted` if the player has exhausted their allowed turns.
      */
-    function play() external payable gameActive returns(uint256 requestId) {
+    function play() external payable gameActive returns (uint256 requestId) {
         User storage user = playerInfo[msg.sender];
         if (user.totalTurns == MAX_NO_OF_TURNS) {
             revert UserTurnsExhausted(msg.sender);
@@ -174,9 +172,7 @@ contract RareTitle is DRBConsumerBase, ReentrancyGuard, Ownable {
      * @notice Only the contract owner can call this function.
      * @dev Reverts if the new Expiry is the same as the current one.
      */
-    function updateGameExpiry(
-        uint256 _newGameExpiry
-    ) external gameActive onlyOwner {
+    function updateGameExpiry(uint256 _newGameExpiry) external gameActive onlyOwner {
         if (_newGameExpiry == gameExpiry || _newGameExpiry == 0) {
             revert InvalidGameExpiry(_newGameExpiry);
         }
@@ -226,10 +222,7 @@ contract RareTitle is DRBConsumerBase, ReentrancyGuard, Ownable {
      * @param _requestId The ID of the randomness request.
      * @param _randomWord The random number provided by DRBCoordinator.
      */
-    function fulfillRandomWords(
-        uint256 _requestId,
-        uint256 _randomWord
-    ) internal override {
+    function fulfillRandomWords(uint256 _requestId, uint256 _randomWord) internal override {
         if (!s_requests[_requestId].requested) {
             revert RequestNotFound(_requestId);
         }
@@ -241,10 +234,7 @@ contract RareTitle is DRBConsumerBase, ReentrancyGuard, Ownable {
         User storage player = playerInfo[_player];
         player.totalPoints += gameBoard[boardPosition];
 
-        if (
-            winner == address(0) ||
-            playerInfo[winner].totalPoints < player.totalPoints
-        ) {
+        if (winner == address(0) || playerInfo[winner].totalPoints < player.totalPoints) {
             winner = _player;
         }
 
@@ -252,17 +242,17 @@ contract RareTitle is DRBConsumerBase, ReentrancyGuard, Ownable {
     }
 
     /**
-     * @dev Initializes the game board by populating it with a predefined set of `Title` objects. 
-     *      The function fills the `gameBoard` with `points` from the available titles, ensuring 
+     * @dev Initializes the game board by populating it with a predefined set of `Title` objects.
+     *      The function fills the `gameBoard` with `points` from the available titles, ensuring
      *      that the titles are placed according to their maximum count.
-     * 
+     *
      *      The titles are:
      *      - Title 1: 100 points, total count of 1
      *      - Title 2: 30 points, total count of 3
      *      - Title 3: 20 points, total count of 10
      *      - Title 4: 10 points, total count of 40
      *      - Title 5: -5 points, total count of 46
-     * 
+     *
      *      Once the `total` for a particular title is reached, the function proceeds to the next title.
      *
      * @notice This function must be called internally to set up the initial state of the game board.

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
+
 import {Test} from "forge-std/Test.sol";
 
 contract GasHelpers is Test {
@@ -18,9 +19,6 @@ contract GasHelpers is Test {
         // Subtract 100 to account for the warm SLOAD in startMeasuringGas
         uint256 gasDelta = checkpointGasLeft - checkpointGasLeft2 - 100;
 
-        emit log_named_uint(
-            string(abi.encodePacked(checkpointLabel, " Gas")),
-            gasDelta
-        );
+        emit log_named_uint(string(abi.encodePacked(checkpointLabel, " Gas")), gasDelta);
     }
 }
