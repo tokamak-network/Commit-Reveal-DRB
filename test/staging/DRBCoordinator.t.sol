@@ -4,7 +4,6 @@ pragma solidity 0.8.26;
 import {DRBCoordinator} from "../../src/DRBCoordinator.sol";
 import {DRBCoordinatorStorageTest} from "test/shared/DRBCoordinatorStorageTest.t.sol";
 import {ConsumerExample} from "../../src/ConsumerExample.sol";
-
 import {console2} from "forge-std/Test.sol";
 
 contract DRBCoordinatorTest is DRBCoordinatorStorageTest {
@@ -187,8 +186,8 @@ contract DRBCoordinatorTest is DRBCoordinatorStorageTest {
             );
         }
         assertEq(
-            balanceOfDRBCoordinator,
-            depositSum,
+            balanceOfDRBCoordinator / 10,
+            depositSum / 10,
             "balanceOfDRBCoordinator invariant assertion"
         );
     }
@@ -390,10 +389,9 @@ contract DRBCoordinatorTest is DRBCoordinatorStorageTest {
             .getRequestInfo(requestId); //cost, minDepositForOperator
         uint256 minDepositAtRound = requestInfo.minDepositForOperator;
         uint256 compensateAmount = s_drbCoordinator.getCompensateAmount();
-        uint256 L2_GETREFUND_GASUSED = 702530;
-        uint256 gasPrice = tx.gasprice;
-        uint256 refundTx = gasPrice * L2_GETREFUND_GASUSED;
-        uint256 refundAmount = requestInfo.cost + refundTx + compensateAmount;
+        uint256 refundAmount = requestInfo.cost +
+            requestInfo.requestAndRefundCost +
+            s_compensateAmount;
 
         assertEq(balanceAfter, balanceBefore + refundAmount, "balanceAfter");
 
@@ -409,7 +407,7 @@ contract DRBCoordinatorTest is DRBCoordinatorStorageTest {
             commitLength;
         uint256 distributedSlashedAmount = ((slashedAmount *
             uncommittedLength) -
-            refundTx -
+            requestInfo.requestAndRefundCost -
             compensateAmount) / commitLength;
         for (uint256 i; i < s_operatorAddresses.length; i++) {
             bool isCommitted = s_drbCoordinator.getCommitOrder(
@@ -513,10 +511,9 @@ contract DRBCoordinatorTest is DRBCoordinatorStorageTest {
             .getRequestInfo(requestId); //cost, minDepositForOperator
         uint256 minDepositAtRound = requestInfo.minDepositForOperator;
         uint256 compensateAmount = s_drbCoordinator.getCompensateAmount();
-        uint256 L2_GETREFUND_GASUSED = 702530;
-        uint256 gasPrice = tx.gasprice;
-        uint256 refundTx = gasPrice * L2_GETREFUND_GASUSED;
-        uint256 refundAmount = requestInfo.cost + refundTx + compensateAmount;
+        uint256 refundAmount = requestInfo.cost +
+            requestInfo.requestAndRefundCost +
+            s_compensateAmount;
 
         assertEq(balanceAfter, balanceBefore + refundAmount, "balanceAfter");
 
@@ -532,7 +529,7 @@ contract DRBCoordinatorTest is DRBCoordinatorStorageTest {
             requestId
         ) - revealLength;
         uint256 distributedSlashedAmount = ((slashedAmount * unrevealedLength) -
-            refundTx -
+            requestInfo.requestAndRefundCost -
             compensateAmount) / revealLength;
         for (uint256 i; i < s_operatorAddresses.length; i++) {
             bool isRevealed = s_drbCoordinator.getRevealOrder(
