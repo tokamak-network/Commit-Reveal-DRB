@@ -104,8 +104,12 @@ contract DRBCoodinatorGasTest is BaseTest {
             L1_FEE_DATA_PADDING,
             L1_FEE_DATA_PADDING
         );
-        console2.log(totalCalldata.length);
         console2.log(
+            "2commits2reveals calldata size in bytes",
+            totalCalldata.length
+        );
+        console2.log(
+            "1commit11reveal calldata size in bytes",
             bytes
                 .concat(
                     commitData,
