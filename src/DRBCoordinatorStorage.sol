@@ -105,7 +105,7 @@ contract DRBCoordinatorStorage {
         return MAX_ACTIVATED_OPERATORS;
     }
 
-    /// ** s_compensations
+    /// ** s_compensateAmount
     function getCompensateAmount() external view returns (uint256) {
         return s_compensateAmount;
     }

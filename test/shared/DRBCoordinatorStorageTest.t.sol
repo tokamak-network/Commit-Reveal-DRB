@@ -8,7 +8,7 @@ abstract contract DRBCoordinatorStorageTest is BaseTest {
     address[] s_operatorAddresses;
     address[] s_consumerAddresses;
     uint256 constant s_activationThreshold = 1 ether;
-    uint256[3] s_compensations = [0.2 ether, 0.3 ether, 0.4 ether];
+    uint256 s_compensateAmount = 0.2 ether;
     uint256 constant s_flatFee = 0.01 ether;
 
     function _setUp() internal virtual {
@@ -24,7 +24,7 @@ abstract contract DRBCoordinatorStorageTest is BaseTest {
         s_drbCoordinator = new DRBCoordinator(
             s_activationThreshold,
             s_flatFee,
-            s_compensations
+            s_compensateAmount
         );
         // s_consumerExample = new ConsumerExample(address(s_drbCoordinator));
 
