@@ -52,15 +52,20 @@ contract NetworkHelperConfig is Script {
 
         /// *** get L1 Gas
         uint256 l1GasCost = _calculateLegacyL1DataFee(
-            ONECOMMIT_ONEREVEAL_CALLDATA_BYTES_SIZE +
-                REQUEST_REFUND_CALLDATA_BYTES_SIZE
+            ONECOMMIT_ONEREVEAL_CALLDATA_BYTES_SIZE
+        );
+
+        l1GasCost += _calculateLegacyL1DataFee(
+            REQUEST_REFUND_CALLDATA_BYTES_SIZE
         );
 
         uint256 activationThreshold = fixedL2GasPrice *
             (ONECOMMIT_ONEREVEAL_GASUSED +
                 MAX_CALLBACK_GAS_LIMIT +
                 MAX_REQUEST_REFUND_GASUSED) +
-            l1GasCost;
+            l1GasCost +
+            compensateAmount +
+            flatFee;
         return
             NetworkConfig({
                 activationThreshold: activationThreshold,
@@ -76,7 +81,9 @@ contract NetworkHelperConfig is Script {
         uint256 activationThreshold = tx.gasprice *
             (ONECOMMIT_ONEREVEAL_GASUSED +
                 MAX_CALLBACK_GAS_LIMIT +
-                MAX_REQUEST_REFUND_GASUSED);
+                MAX_REQUEST_REFUND_GASUSED) +
+            compensateAmount +
+            flatFee;
         return
             NetworkConfig({
                 activationThreshold: activationThreshold,
@@ -91,14 +98,17 @@ contract NetworkHelperConfig is Script {
         view
         returns (NetworkConfig memory)
     {
-        uint256 fixedL2GasPrice = 1000252;
+        uint256 fixedL2GasPrice = 1000552; // 1000252 + buffer
         uint256 flatFee = 0.00001 ether;
         uint256 compensateAmount = 0.000005 ether;
 
         /// *** get L1 Gas
         uint256 l1GasCost = _calculateOptimismL1DataFee(
             ONECOMMIT_ONEREVEAL_CALLDATA_BYTES_SIZE +
-                REQUEST_REFUND_CALLDATA_BYTES_SIZE +
+                L1_UNSIGNED_RLP_ENC_TX_DATA_BYTES_SIZE
+        );
+        l1GasCost += _calculateOptimismL1DataFee(
+            REQUEST_REFUND_CALLDATA_BYTES_SIZE +
                 L1_UNSIGNED_RLP_ENC_TX_DATA_BYTES_SIZE
         );
 
@@ -106,7 +116,9 @@ contract NetworkHelperConfig is Script {
             (ONECOMMIT_ONEREVEAL_GASUSED +
                 MAX_CALLBACK_GAS_LIMIT +
                 MAX_REQUEST_REFUND_GASUSED) +
-            l1GasCost;
+            l1GasCost +
+            compensateAmount +
+            flatFee;
         return
             NetworkConfig({
                 activationThreshold: activationThreshold,
@@ -117,21 +129,25 @@ contract NetworkHelperConfig is Script {
     }
 
     function getTitanConfig() public view returns (NetworkConfig memory) {
-        uint256 fixedL2GasPrice = 1000000;
+        uint256 fixedL2GasPrice = 1003000; // 1000000 + buffer
         uint256 flatFee = 0.001 ether;
         uint256 compensateAmount = 0.0005 ether;
 
         /// *** get L1 Gas
         uint256 l1GasCost = _calculateLegacyL1DataFee(
-            ONECOMMIT_ONEREVEAL_CALLDATA_BYTES_SIZE +
-                REQUEST_REFUND_CALLDATA_BYTES_SIZE
+            ONECOMMIT_ONEREVEAL_CALLDATA_BYTES_SIZE
+        );
+        l1GasCost += _calculateLegacyL1DataFee(
+            REQUEST_REFUND_CALLDATA_BYTES_SIZE
         );
 
         uint256 activationThreshold = fixedL2GasPrice *
             (ONECOMMIT_ONEREVEAL_GASUSED +
                 MAX_CALLBACK_GAS_LIMIT +
                 MAX_REQUEST_REFUND_GASUSED) +
-            l1GasCost;
+            l1GasCost +
+            compensateAmount +
+            flatFee;
         return
             NetworkConfig({
                 activationThreshold: activationThreshold,
