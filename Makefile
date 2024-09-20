@@ -53,9 +53,12 @@ endif
 ifeq ($(findstring --network sepolia,$(ARGS)), --network sepolia)
 	NETWORK_ARGS := --rpc-url $(SEPOLIA_RPC_URL) --private-key $(PRIVATE_KEY) --broadcast --verify --etherscan-api-key $(ETHERSCAN_API_KEY) -vv
 endif
+ifeq ($(findstring --network titansepolia,$(ARGS)), --network titansepolia)
+	NETWORK_ARGS := --rpc-url $(TITAN_SEPOLIA_URL) --private-key $(PRIVATE_KEY) --broadcast --verify --verifier blockscout --verifier-url $(TITAN_SEPOLIA_EXPLORER) -vv --legacy
+endif
 
 
-deploy: deploy-drb deploy-consumer-example set-l1fee-mode
+deploy: deploy-drb deploy-consumer-example
 # make deploy ARGS="--network thanossepolia"
 
 deploy-drb:
@@ -109,14 +112,14 @@ re-request-round:
 
 
 verfy-drb:
-	@CONSTRUCTOR_ARGS=$$(cast abi-encode "constructor(uint256,uint256,uint256[3])" 1000000000000000000 10000000000000000 "[200000000000000000,300000000000000000,400000000000000000]") \
-	forge verify-contract --constructor-args CONSTRUCTOR_ARGS --verifier blockscout --verifier-url https://explorer.thanos-sepolia.tokamak.network/api --rpc-url $(THANOS_SEPOLIA_URL) $(ADDRESS) DRBCoordinator
+	@CONSTRUCTOR_ARGS=$$(cast abi-encode "constructor(uint256,uint256,uint256)" 3475972 10000000000000 5000000000000) \
+	forge verify-contract --constructor-args CONSTRUCTOR_ARGS --verifier blockscout --verifier-url https://explorer.thanos-sepolia.tokamak.network/api --rpc-url $(TITAN_SEPOLIA_URL) $(ADDRESS) DRBCoordinator
 
 DRB := $()
 
 verify-consumer-example:
-	@CONSTRUCTOR_ARGS=$$(cast abi-encode "constructor(address)" 0xd7142b66a9804315eA8653bF9Af9bBaB958aa5E6) \
-	forge verify-contract --constructor-args CONSTRUCTOR_ARGS --verifier blockscout --verifier-url https://explorer.thanos-sepolia.tokamak.network/api --rpc-url $(THANOS_SEPOLIA_URL) $(ADDRESS) DRBCoordinator
+	@CONSTRUCTOR_ARGS=$$(cast abi-encode "constructor(address)" 0xb8A9e7279b7f134736668bE3394CDAe5DFaD9e62) \
+	forge verify-contract --constructor-args CONSTRUCTOR_ARGS --verifier blockscout --verifier-url https://explorer.thanos-sepolia.tokamak.network/api --rpc-url $(TITAN_SEPOLIA_URL) $(ADDRESS) DRBCoordinator
 
 #################### * test ####################
 
