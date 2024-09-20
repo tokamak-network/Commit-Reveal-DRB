@@ -102,39 +102,10 @@ increase:
 refund:
 	@forge script script/Interactions.s.sol:Refund $(NETWORK_ARGS) --sig "run(uint256)" $(ROUND)
 
-
-
-
-ROUND_ARG := $()
-
-re-request-round:
-	@forge script script/Interactions.s.sol:ReRequestRandomWord $(NETWORK_ARGS)
-
-
 verfy-drb:
 	@CONSTRUCTOR_ARGS=$$(cast abi-encode "constructor(uint256,uint256,uint256)" 3475972 10000000000000 5000000000000) \
-	forge verify-contract --constructor-args CONSTRUCTOR_ARGS --verifier blockscout --verifier-url https://explorer.thanos-sepolia.tokamak.network/api --rpc-url $(TITAN_SEPOLIA_URL) $(ADDRESS) DRBCoordinator
-
-DRB := $()
+	forge verify-contract --constructor-args CONSTRUCTOR_ARGS --verifier blockscout --verifier-url $(TITAN_SEPOLIA_EXPLORER) --rpc-url $(TITAN_SEPOLIA_URL) $(ADDRESS) DRBCoordinator
 
 verify-consumer-example:
 	@CONSTRUCTOR_ARGS=$$(cast abi-encode "constructor(address)" 0xb8A9e7279b7f134736668bE3394CDAe5DFaD9e62) \
-	forge verify-contract --constructor-args CONSTRUCTOR_ARGS --verifier blockscout --verifier-url https://explorer.thanos-sepolia.tokamak.network/api --rpc-url $(TITAN_SEPOLIA_URL) $(ADDRESS) DRBCoordinator
-
-#################### * test ####################
-
-test:
-	@forge test --nmp test/unit/Prime.t.sol --gas-report --gas-limit 999999999999
-
-test-pietrzak:
-	@forge test --mp test/staging/Pietrzak.t.sol --gas-report -vv --gas-limit 999999999999
-test-wesolowski:
-	@forge test --mp test/staging/Wesolowski.t.sol --gas-report -vv --gas-limit 999999999999
-test-getL1Fee:
-	@forge test --mp test/unit/GetL1Fee.t.sol -v --gas-report
-
-test-prime:
-	@forge test --mp test/unit/Prime.t.sol -vv
-
-
-#forge verify-contract --constructor-args 0xcC377BD2EA392DC48605bfe0779a638ea4fCf365 --verifier blockscout --verifier-url https://explorer.thanos-sepolia.tokamak.network/api 0xf10Cf5550143850fac7CCF09B36cd4BEE018070D ConsumerExample
+	forge verify-contract --constructor-args CONSTRUCTOR_ARGS --verifier blockscout --verifier-url $(TITAN_SEPOLIA_EXPLORER) --rpc-url $(TITAN_SEPOLIA_URL) $(ADDRESS) ConsumerExample
