@@ -22,13 +22,11 @@ contract DRBCoordinator is
     constructor(
         uint256 activationThreshold,
         uint256 flatFee,
-        uint256[3] memory compensations
+        uint256 compensateAmount
     ) Ownable(msg.sender) {
         s_activationThreshold = activationThreshold;
         s_flatFee = flatFee;
-        s_compensations = compensations;
-        s_returnAmountForOperators[0] = compensations[2] - compensations[0];
-        s_returnAmountForOperators[1] = compensations[2] - compensations[1];
+        s_compensateAmount = compensateAmount;
         s_activatedOperators.push(address(0)); // dummy data
     }
 
@@ -37,6 +35,10 @@ contract DRBCoordinator is
     function requestRandomNumber(
         uint32 callbackGasLimit
     ) external payable nonReentrant returns (uint256 round) {
+        require(
+            callbackGasLimit <= MAX_CALLBACK_GAS_LIMIT,
+            ExceedCallbackGasLimit()
+        );
         require(s_activatedOperators.length > 2, NotEnoughActivatedOperators());
         require(
             msg.value >= _calculateRequestPrice(callbackGasLimit, tx.gasprice),
@@ -45,18 +47,20 @@ contract DRBCoordinator is
         unchecked {
             round = s_nextRound++;
         }
-        uint256 refundCost = _calculateGetRefundCost(tx.gasprice);
+        uint256 requestAndRefundCost = _calculateGetRequestAndRefundCost(
+            tx.gasprice
+        );
         uint256 minDepositForThisRound = _calculateMinDepositForOneRound(
             callbackGasLimit,
             tx.gasprice
-        ) + refundCost;
+        ) + requestAndRefundCost;
         s_requestInfo[round] = RequestInfo({
             consumer: msg.sender,
             requestedTime: block.timestamp,
             cost: msg.value,
             callbackGasLimit: callbackGasLimit,
             minDepositForOperator: minDepositForThisRound,
-            refundCost: refundCost
+            requestAndRefundCost: requestAndRefundCost
         });
         address[] memory activatedOperators;
         s_activatedOperatorsAtRound[
@@ -115,65 +119,48 @@ contract DRBCoordinator is
         ].length - 1;
 
         if (ruleNum == 0) {
-            uint256 operatorReturnAmount = s_returnAmountForOperators[0];
             uint256 totalSlashAmount = activatedOperatorsAtRoundLength *
-                (s_requestInfo[round].minDepositForOperator -
-                    operatorReturnAmount);
-            for (
-                uint256 i = 1;
-                i <= activatedOperatorsAtRoundLength;
-                i = _unchecked_inc(i)
-            ) {
-                address operator = s_activatedOperatorsAtRound[round][i];
-                _checkAndActivateIfNotForceDeactivated(
-                    s_activatedOperatorOrder[operator],
-                    s_depositAmount[operator] += operatorReturnAmount,
-                    s_activationThreshold,
-                    operator
-                );
-            }
+                s_requestInfo[round].minDepositForOperator;
             payable(msg.sender).transfer(
                 totalSlashAmount + s_requestInfo[round].cost
             );
         } else {
-            uint256 refundTxCostAndCompensateAmount = s_requestInfo[round]
-                .refundCost + s_compensations[ruleNum];
+            uint256 requestRefundTxCostAndCompensateAmount = s_requestInfo[
+                round
+            ].requestAndRefundCost + s_compensateAmount;
             uint256 refundAmount = s_requestInfo[round].cost +
-                refundTxCostAndCompensateAmount;
+                requestRefundTxCostAndCompensateAmount;
             uint256 minDepositAtRound = s_requestInfo[round]
                 .minDepositForOperator;
+            uint256 activationThreshold = s_activationThreshold;
 
             if (ruleNum == 1) {
-                uint256 returnAmountForUncommitted = s_returnAmountForOperators[
-                    1
-                ];
                 uint256 returnAmountForCommitted = minDepositAtRound +
                     (((activatedOperatorsAtRoundLength - commitLength) *
-                        (minDepositAtRound - returnAmountForUncommitted) -
-                        refundTxCostAndCompensateAmount) / commitLength);
+                        minDepositAtRound -
+                        requestRefundTxCostAndCompensateAmount) / commitLength);
                 for (
                     uint256 i = 1;
                     i <= activatedOperatorsAtRoundLength;
                     i = _unchecked_inc(i)
                 ) {
                     address operator = s_activatedOperatorsAtRound[round][i];
-                    uint256 operatorReturnAmount = s_commitOrder[round][
-                        operator
-                    ] != 0
-                        ? returnAmountForCommitted
-                        : returnAmountForUncommitted;
-                    _checkAndActivateIfNotForceDeactivated(
-                        s_activatedOperatorOrder[operator],
-                        s_depositAmount[operator] += operatorReturnAmount,
-                        s_activationThreshold,
-                        operator
-                    );
+                    if (s_commitOrder[round][operator] != 0) {
+                        _checkAndActivateIfNotForceDeactivated(
+                            s_activatedOperatorOrder[operator],
+                            s_depositAmount[
+                                operator
+                            ] += returnAmountForCommitted,
+                            activationThreshold,
+                            operator
+                        );
+                    }
                 }
             } else {
                 uint256 returnAmountForRevealed = minDepositAtRound +
                     (((commitLength - revealLength) *
                         minDepositAtRound -
-                        refundTxCostAndCompensateAmount) / revealLength);
+                        requestRefundTxCostAndCompensateAmount) / revealLength);
                 for (
                     uint256 i = 1;
                     i <= activatedOperatorsAtRoundLength;
@@ -186,7 +173,7 @@ contract DRBCoordinator is
                             s_depositAmount[
                                 operator
                             ] += returnAmountForRevealed,
-                            s_activationThreshold,
+                            activationThreshold,
                             operator
                         );
                     }
@@ -216,7 +203,7 @@ contract DRBCoordinator is
     ) external view returns (uint256) {
         return
             _calculateMinDepositForOneRound(callbackGasLimit, gasPrice) +
-            _calculateGetRefundCost(gasPrice);
+            _calculateGetRequestAndRefundCost(gasPrice);
     }
 
     function _checkAndActivateIfNotForceDeactivated(
@@ -244,7 +231,7 @@ contract DRBCoordinator is
                 (s_premiumPercentage + 100)) / 100) +
             s_flatFee +
             _getL1CostWeiForCalldataSize(
-                TWOCOMMIT_TWOREVEAL_CALLDATA_SIZE_BYTES
+                TWOCOMMIT_TWOREVEAL_CALLDATA_BYTES_SIZE
             );
     }
 
@@ -257,17 +244,18 @@ contract DRBCoordinator is
                 (s_premiumPercentage + 100)) / 100) +
             s_flatFee +
             _getL1CostWeiForCalldataSize(
-                ONECOMMIT_ONEREVEAL_CALLDATA_SIZE_BYTES
+                ONECOMMIT_ONEREVEAL_CALLDATA_BYTES_SIZE
             ) +
-            s_compensations[2];
+            s_compensateAmount;
     }
 
-    function _calculateGetRefundCost(
+    function _calculateGetRequestAndRefundCost(
         uint256 gasPrice
     ) private view returns (uint256) {
         return
-            (((gasPrice * REFUND_GASUSED) * (s_premiumPercentage + 100)) /
-                100) + _getL1CostWeiForCalldataSize(REFUND_CALLDATA_SIZE_BYTES);
+            (((gasPrice * MAX_REQUEST_REFUND_GASUSED) *
+                (s_premiumPercentage + 100)) / 100) +
+            _getL1CostWeiForCalldataSize(REQUEST_REFUND_CALLDATA_BYTES_SIZE);
     }
 
     /// ***
@@ -512,9 +500,7 @@ contract DRBCoordinator is
         s_activationThreshold = activationThreshold;
     }
 
-    function setCompensations(
-        uint256[3] memory compensations
-    ) external onlyOwner {
-        s_compensations = compensations;
+    function setCompensations(uint256 compensateAmount) external onlyOwner {
+        s_compensateAmount = compensateAmount;
     }
 }
