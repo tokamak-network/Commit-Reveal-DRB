@@ -12,6 +12,16 @@ contract DRBCoordinatorStorage {
         uint256 requestAndRefundCost;
     }
 
+    struct CommitInfo {
+        bool committed;
+        uint256 commitIndex;
+    }
+
+    struct RevealInfo {
+        bool revealed;
+        uint256 revealIndex;
+    }
+
     struct RoundInfo {
         uint256 commitEndTime;
         uint256 randomNumber;
@@ -19,19 +29,17 @@ contract DRBCoordinatorStorage {
     }
 
     /// *** State variables ***
-    mapping(uint256 round => address[] activatedOperators) internal s_activatedOperatorsAtRound;
-    mapping(uint256 round => mapping(address operator => uint256)) internal s_activatedOperatorOrderAtRound;
+    mapping(uint256 round => mapping (address operator => CommitInfo info)) internal s_operatorsCommitInfoAtRound;
+    mapping(uint256 round => mapping (address operator => RevealInfo info)) internal s_operatorsRevealInfoAtRound;
+    mapping(uint256 round => address[] committedOperators) internal s_committedOperatorsAtRound;
     mapping(uint256 round => RequestInfo requestInfo) internal s_requestInfo;
     mapping(uint256 round => RoundInfo roundInfo) internal s_roundInfo;
     mapping(uint256 round => bytes32[] commits) internal s_commits;
     mapping(uint256 round => bytes32[] reveals) internal s_reveals;
-
     mapping(address operator => bool isForceDeactivated) internal s_forceDeactivated;
     mapping(address operator => uint256 depositAmount) internal s_depositAmount;
-    mapping(address operator => uint256) internal s_activatedOperatorOrder;
-    mapping(uint256 round => mapping(address operator => uint256)) internal s_commitOrder;
-    mapping(uint256 round => mapping(address operator => uint256)) internal s_revealOrder;
-    address[] internal s_activatedOperators;
+    mapping (address operator => bool activated) internal s_activatedOperators;
+
     uint256 internal s_compensateAmount;
     uint256 internal s_currentRound;
     uint256 internal s_nextRound;
@@ -102,11 +110,6 @@ contract DRBCoordinatorStorage {
         return s_depositAmount[operator];
     }
 
-    /// ** s_activatedOperatorOrder
-    function getActivatedOperatorIndex(address operator) external view returns (uint256) {
-        return s_activatedOperatorOrder[operator];
-    }
-
     /// ** s_activatedOperators
     function getActivatedOperators() external view returns (address[] memory) {
         return s_activatedOperators;
@@ -127,12 +130,12 @@ contract DRBCoordinatorStorage {
     }
 
     /// ** s_activatedOperatorsAtRound
-    function getActivatedOperatorsAtRound(uint256 round) external view returns (address[] memory) {
-        return s_activatedOperatorsAtRound[round];
+    function getCommittedOperatorsAtRound(uint256 round) external view returns (address[] memory) {
+        return s_committedOperatorsAtRound[round];
     }
 
-    function getActivatedOperatorsLengthAtRound(uint256 round) external view returns (uint256) {
-        return s_activatedOperatorsAtRound[round].length - 1;
+    function getCommittedOperatorsLengthAtRound(uint256 round) external view returns (uint256) {
+        return s_committedOperatorsAtRound[round].length;
     }
 
     /// ** s_roundInfo
@@ -151,7 +154,7 @@ contract DRBCoordinatorStorage {
 
     /// ** s_commitOrder
     function getCommitOrder(uint256 round, address operator) external view returns (uint256) {
-        return s_commitOrder[round][operator];
+        return s_operatorsCommitInfoAtRound[round][operator].commitIndex;
     }
 
     /// ** s_reveals
@@ -161,7 +164,7 @@ contract DRBCoordinatorStorage {
 
     /// ** s_revealOrder
     function getRevealOrder(uint256 round, address operator) external view returns (uint256) {
-        return s_revealOrder[round][operator];
+        return s_operatorsRevealInfoAtRound[round][operator].revealIndex;
     }
 
     function getRevealsLength(uint256 round) external view returns (uint256) {

@@ -40,24 +40,7 @@ contract DRBCoordinator is Ownable, ReentrancyGuardTransient, IDRBCoordinator, D
             minDepositForOperator: minDepositForThisRound,
             requestAndRefundCost: requestAndRefundCost
         });
-        address[] memory activatedOperators;
-        s_activatedOperatorsAtRound[round] = activatedOperators = s_activatedOperators;
-        uint256 activatedOperatorsLength = activatedOperators.length;
-        uint256 i = 1;
-        mapping(address => uint256) storage activatedOperatorOrderAtRound = s_activatedOperatorOrderAtRound[round];
-        uint256 activationThreshold = s_activationThreshold;
-        do {
-            address operator = activatedOperators[i];
-            activatedOperatorOrderAtRound[operator] = i;
-            uint256 activatedOperatorIndex = s_activatedOperatorOrder[operator];
-            if ((s_depositAmount[operator] -= minDepositForThisRound) < activationThreshold) {
-                _deactivate(activatedOperatorIndex, operator);
-            }
-            unchecked {
-                ++i;
-            }
-        } while (i < activatedOperatorsLength);
-        emit RandomNumberRequested(round, activatedOperators);
+        emit RandomNumberRequested(round);
     }
 
     /// @dev refund the cost of the request
@@ -83,10 +66,8 @@ contract DRBCoordinator is Ownable, ReentrancyGuardTransient, IDRBCoordinator, D
         }
         require(ruleNum != 3, NotRefundable());
 
-        uint256 activatedOperatorsAtRoundLength = s_activatedOperatorsAtRound[round].length - 1;
-
         if (ruleNum == 0) {
-            uint256 totalSlashAmount = activatedOperatorsAtRoundLength * s_requestInfo[round].minDepositForOperator;
+            uint256 totalSlashAmount = MAX_ACTIVATED_OPERATORS * s_requestInfo[round].minDepositForOperator;
             payable(msg.sender).transfer(totalSlashAmount + s_requestInfo[round].cost);
         } else {
             uint256 requestRefundTxCostAndCompensateAmount =
@@ -99,7 +80,7 @@ contract DRBCoordinator is Ownable, ReentrancyGuardTransient, IDRBCoordinator, D
                 uint256 returnAmountForCommitted = minDepositAtRound
                     + (
                         (
-                            (activatedOperatorsAtRoundLength - commitLength) * minDepositAtRound
+                            (MAX_ACTIVATED_OPERATORS - commitLength) * minDepositAtRound
                                 - requestRefundTxCostAndCompensateAmount
                         ) / commitLength
                     );
@@ -107,7 +88,6 @@ contract DRBCoordinator is Ownable, ReentrancyGuardTransient, IDRBCoordinator, D
                     address operator = s_activatedOperatorsAtRound[round][i];
                     if (s_commitOrder[round][operator] != 0) {
                         _checkAndActivateIfNotForceDeactivated(
-                            s_activatedOperatorOrder[operator],
                             s_depositAmount[operator] += returnAmountForCommitted,
                             activationThreshold,
                             operator
@@ -124,7 +104,6 @@ contract DRBCoordinator is Ownable, ReentrancyGuardTransient, IDRBCoordinator, D
                     address operator = s_activatedOperatorsAtRound[round][i];
                     if (s_revealOrder[round][operator] != 0) {
                         _checkAndActivateIfNotForceDeactivated(
-                            s_activatedOperatorOrder[operator],
                             s_depositAmount[operator] += returnAmountForRevealed,
                             activationThreshold,
                             operator
@@ -154,13 +133,12 @@ contract DRBCoordinator is Ownable, ReentrancyGuardTransient, IDRBCoordinator, D
     }
 
     function _checkAndActivateIfNotForceDeactivated(
-        uint256 activatedOperatorIndex,
         uint256 updatedDepositAmount,
         uint256 minDepositForThisRound,
         address operator
     ) private {
         if (
-            activatedOperatorIndex == 0 && updatedDepositAmount >= minDepositForThisRound
+            !s_activatedOperators[operator] && updatedDepositAmount >= minDepositForThisRound
                 && !s_forceDeactivated[operator]
         ) {
             _activate(operator);
@@ -191,37 +169,46 @@ contract DRBCoordinator is Ownable, ReentrancyGuardTransient, IDRBCoordinator, D
     /// ** Operator(Node) Interface **
 
     function commit(uint256 round, bytes32 a) external {
-        address[] storage activatedOperatorsAtRound = s_activatedOperatorsAtRound[round];
         require(
-            activatedOperatorsAtRound[s_activatedOperatorOrderAtRound[round][msg.sender]] == msg.sender,
+            s_activatedOperators[msg.sender],
             WasNotActivated()
         );
+        require(s_operatorsCommitInfoAtRound[round][msg.sender].committed, AlreadyCommitted());
+        RequestInfo memory requestInfo = s_requestInfo[round];
+        if ((s_depositAmount[msg.sender] -= requestInfo.minDepositForOperator) < s_activationThreshold) {
+            _deactivate(msg.sender);
+        }
+
         bytes32[] storage commits = s_commits[round];
-        RoundInfo storage roundInfo = s_roundInfo[round];
-        mapping(address => uint256) storage commitOrder = s_commitOrder[round];
         uint256 commitLength = commits.length;
+        if(commitLength == MAX_ACTIVATED_OPERATORS) {
+            revert ACTIVATED_OPERATORS_LIMIT_REACHED();
+        }
+        RoundInfo storage roundInfo = s_roundInfo[round];
         if (commitLength == 0) {
             roundInfo.commitEndTime = block.timestamp + COMMIT_DURATION;
         } else {
             require(block.timestamp <= roundInfo.commitEndTime, CommitPhaseOver());
-            require(commitOrder[msg.sender] == 0, AlreadyCommitted());
         }
+        s_operatorsCommitInfoAtRound[round][msg.sender].committed = true;
+        s_operatorsCommitInfoAtRound[round][msg.sender].commitIndex = commitLength;
         commits.push(a);
         unchecked {
             ++commitLength;
         }
-        commitOrder[msg.sender] = commitLength;
-        if (commitLength == activatedOperatorsAtRound.length - 1) {
+        s_committedOperatorsAtRound[roundInfo].push(msg.sender);
+        
+        if (commitLength == MAX_ACTIVATED_OPERATORS) {
             roundInfo.commitEndTime = block.timestamp;
         }
         emit Commit(msg.sender, round);
     }
 
     function reveal(uint256 round, bytes32 s) external {
-        uint256 commitOrder = s_commitOrder[round][msg.sender];
-        require(commitOrder != 0, NotCommitted());
-        mapping(address => uint256) storage revealOrder = s_revealOrder[round];
-        require(revealOrder[msg.sender] == 0, AlreadyRevealed());
+        CommitInfo memory commitInfo = s_operatorsCommitInfoAtRound[round][msg.sender];
+        RevealInfo storage revealInfo = s_operatorsRevealInfoAtRound[round][msg.sender];
+        require(commitInfo.committed, NotCommitted());
+        require(revealInfo.revealed, AlreadyRevealed());
         RoundInfo storage roundInfo = s_roundInfo[round];
         bytes32[] storage commits = s_commits[round];
         bytes32[] storage reveals = s_reveals[round];
@@ -230,9 +217,11 @@ contract DRBCoordinator is Ownable, ReentrancyGuardTransient, IDRBCoordinator, D
         require(
             (block.timestamp > commitEndTime && block.timestamp <= commitEndTime + REVEAL_DURATION), NotRevealPhase()
         );
-        require(keccak256(abi.encodePacked(s)) == commits[commitOrder - 1], RevealValueMismatch());
+        require(keccak256(abi.encodePacked(s)) == commits[commitInfo.commitIndex], RevealValueMismatch());
+        uint256 revealLength = reveals.length;
+        revealInfo.revealIndex = revealLength;
         reveals.push(s);
-        uint256 revealLength = revealOrder[msg.sender] = reveals.length;
+        revealLength = _unchecked_inc(revealLength);
         if (revealLength == commitLength) {
             uint256 randomNumber = uint256(keccak256(abi.encodePacked(reveals)));
             roundInfo.randomNumber = randomNumber;
@@ -246,13 +235,12 @@ contract DRBCoordinator is Ownable, ReentrancyGuardTransient, IDRBCoordinator, D
             uint256 minDepositForThisRound = requestInfo.minDepositForOperator;
             uint256 minDepositWithReward = requestInfo.cost / revealLength + minDepositForThisRound;
             uint256 activationThreshold = s_activationThreshold;
-            uint256 activatedOperatorsAtRoundLength = s_activatedOperatorsAtRound[round].length - 1;
-            for (uint256 i = 1; i <= activatedOperatorsAtRoundLength; i = _unchecked_inc(i)) {
-                address operator = s_activatedOperatorsAtRound[round][i];
+            address[] memory committedOperators = s_committedOperatorsAtRound[round];
+            for (uint256 i; i < committedOperators.length; i = _unchecked_inc(i)) {
+                address operator = committedOperators[i];
                 _checkAndActivateIfNotForceDeactivated(
-                    s_activatedOperatorOrder[operator],
                     s_depositAmount[operator] +=
-                        (revealOrder[operator] != 0 ? minDepositWithReward : minDepositForThisRound),
+                        (s_operatorsRevealInfoAtRound[round][operator].revealInfo ? minDepositWithReward : minDepositForThisRound),
                     activationThreshold,
                     operator
                 );
@@ -272,51 +260,42 @@ contract DRBCoordinator is Ownable, ReentrancyGuardTransient, IDRBCoordinator, D
 
     function withdraw(uint256 amount) external nonReentrant {
         s_depositAmount[msg.sender] -= amount;
-        uint256 activatedOperatorIndex = s_activatedOperatorOrder[msg.sender];
-        if (activatedOperatorIndex != 0 && s_depositAmount[msg.sender] < s_activationThreshold) {
-            _deactivate(activatedOperatorIndex, msg.sender);
+        if (s_activatedOperators[msg.sender] && s_depositAmount[msg.sender] < s_activationThreshold) {
+            _deactivate(msg.sender);
         }
         payable(msg.sender).transfer(amount);
     }
 
     function activate() external nonReentrant {
-        require(s_depositAmount[msg.sender] >= s_activationThreshold, InsufficientDeposit());
-        if (s_forceDeactivated[msg.sender]) {
-            s_forceDeactivated[msg.sender] = false;
-        }
         _activate(msg.sender);
     }
 
     function deactivate() external nonReentrant {
-        require(s_forceDeactivated[msg.sender] == false, AlreadyForceDeactivated());
+        require(!s_forceDeactivated[msg.sender], AlreadyForceDeactivated());
         s_forceDeactivated[msg.sender] = true;
-        uint256 activatedOperatorIndex = s_activatedOperatorOrder[msg.sender];
-        if (activatedOperatorIndex != 0) {
-            _deactivate(activatedOperatorIndex, msg.sender);
+        if (s_activatedOperators[msg.sender]) {
+            _deactivate(msg.sender);
         }
     }
 
     function _activate(address operator) private {
-        require(s_activatedOperatorOrder[operator] == 0, AlreadyActivated());
-        uint256 activatedOperatorLength = s_activatedOperators.length;
-        require(activatedOperatorLength <= MAX_ACTIVATED_OPERATORS, ACTIVATED_OPERATORS_LIMIT_REACHED());
-        s_activatedOperatorOrder[operator] = activatedOperatorLength;
-        s_activatedOperators.push(operator);
+        require(s_depositAmount[operator] >= s_activationThreshold, InsufficientDeposit());
+        require(!s_activatedOperators[operator], AlreadyActivated());
+
+        if (s_forceDeactivated[msg.sender]) {
+            s_forceDeactivated[msg.sender] = false;
+        }
+
+        s_activatedOperators[operator] = true;
         emit Activated(operator);
     }
 
     function _deposit() private {
-        uint256 totalAmount = s_depositAmount[msg.sender] + msg.value;
-        require(totalAmount >= s_activationThreshold, InsufficientAmount());
-        s_depositAmount[msg.sender] = totalAmount;
+        s_depositAmount[msg.sender] += msg.value;
     }
 
-    function _deactivate(uint256 activatedOperatorIndex, address operator) private {
-        address lastOperator = s_activatedOperators[s_activatedOperators.length - 1];
-        s_activatedOperators[activatedOperatorIndex] = lastOperator;
-        s_activatedOperators.pop();
-        s_activatedOperatorOrder[lastOperator] = activatedOperatorIndex;
-        delete s_activatedOperatorOrder[operator];
+    function _deactivate(address operator) private {
+        delete s_activatedOperators[operator];
         emit DeActivated(operator);
     }
 
@@ -364,7 +343,7 @@ contract DRBCoordinator is Ownable, ReentrancyGuardTransient, IDRBCoordinator, D
         s_activationThreshold = activationThreshold;
     }
 
-    function setCompensations(uint256 compensateAmount) external onlyOwner {
+    function setCompensation(uint256 compensateAmount) external onlyOwner {
         s_compensateAmount = compensateAmount;
     }
 }
