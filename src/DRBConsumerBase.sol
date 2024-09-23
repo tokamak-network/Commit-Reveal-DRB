@@ -7,40 +7,39 @@ import {IDRBCoordinator} from "./interfaces/IDRBCoordinator.sol";
  * @notice Interface for contracts using VRF randomness
  * @dev USAGE
  *
- * @dev Consumer contracts must inherit from VRFConsumerBase, and can
+ * @dev Consumer contracts must inherit from DRBConsumerBase, and can
  * @dev initialize Coordinator address in their constructor as
  */
 abstract contract DRBConsumerBase {
     error OnlyCoordinatorCanFulfill(address have, address want);
     error InvalidRequest(uint256 requestId);
 
-    /// @dev The RNGCoordinator contract
+    /// @dev The DRBCoordinator contract
     IDRBCoordinator internal immutable i_drbCoordinator;
 
     /**
-     * @param rngCoordinator The address of the RNGCoordinator contract
+     * @param drbCoordinator The address of the DRBCoordinator contract
      */
-    constructor(address rngCoordinator) {
-        i_drbCoordinator = IDRBCoordinator(rngCoordinator);
+    constructor(address drbCoordinator) {
+        i_drbCoordinator = IDRBCoordinator(drbCoordinator);
     }
 
     receive() external payable {}
 
     /**
      * @return requestId The ID of the request
-     * @dev Request Randomness to the Coordinator
+     * @dev Request Randomness from the Coordinator
      */
-    function _requestRandomNumber(uint32 callbackGasLimit) internal returns (uint256) {
-        uint256 requestId = i_drbCoordinator.requestRandomNumber{value: msg.value}(callbackGasLimit);
-        return requestId;
+    function _requestRandomNumber(uint32 callbackGasLimit) internal returns (uint256 requestId) {
+        requestId = i_drbCoordinator.requestRandomNumber{value: msg.value}(callbackGasLimit);
     }
 
     /**
      * @param round The round of the randomness
-     * @param randomNumber the random number
+     * @param randomNumber The random number
      * @dev Callback function for the Coordinator to call after the request is fulfilled.  Override this function in your contract
      */
-    function fulfillRandomWords(uint256 round, uint256 randomNumber) internal virtual;
+    function _fulfillRandomWords(uint256 round, uint256 randomNumber) internal virtual;
 
     /**
      * @param requestId The round of the randomness
@@ -51,7 +50,7 @@ abstract contract DRBConsumerBase {
         require(
             msg.sender == address(i_drbCoordinator), OnlyCoordinatorCanFulfill(msg.sender, address(i_drbCoordinator))
         );
-        fulfillRandomWords(requestId, randomNumber);
+        _fulfillRandomWords(requestId, randomNumber);
     }
 
     function getRefund(uint256 requestId) external {
