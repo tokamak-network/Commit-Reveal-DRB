@@ -12,7 +12,7 @@ cache = true
 # The cache directory if enabled
 cache_path  = 'cache_forge'
 fs_permissions = [{ access = "read-write", path = "./"}]
-remappings = [ '@solady/=lib/solady/src', "forge-gas-snapshot/=lib/forge-gas-snapshot/src"]
+remappings = [ '@solady/=lib/solady/src', "forge-gas-snapshot/=lib/forge-gas-snapshot/src", "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/"]
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
 
 # #Optional: Additional optimizer details
