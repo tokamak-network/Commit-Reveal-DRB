@@ -1,22 +1,22 @@
 {
   "transactions": [
     {
-      "hash": "0x5f0b2899e12a24670c9ffc7e5694c6fcc7d2d8005aee9fac0804783aac105d6e",
+      "hash": "0xc635a76efff6376cadb28d4f3f32a541b33922575d3a1d0ce06a72b9314cea49",
       "transactionType": "CALL",
       "contractName": null,
       "contractAddress": "0x66a4855a3020b94ec910bfdc114f77d2596ba433",
-      "function": "reveal(uint256,bytes32)",
+      "function": "commit(uint256,bytes32)",
       "arguments": [
-        "4",
-        "0x0000000000000000000000000000000000000000000000000000000000000001"
+        "2",
+        "0x290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563"
       ],
       "transaction": {
         "from": "0xe49c9ea00337182374e112c452247a2d1db61798",
         "to": "0x66a4855a3020b94ec910bfdc114f77d2596ba433",
-        "gas": "0x21a27",
+        "gas": "0x288f5",
         "value": "0x0",
-        "input": "0x4036778f00000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000001",
-        "nonce": "0x17",
+        "input": "0xf2f038770000000000000000000000000000000000000000000000000000000000000002290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
+        "nonce": "0x15",
         "chainId": "0xd6df"
       },
       "additionalContracts": [],
@@ -26,10 +26,10 @@
   "receipts": [],
   "libraries": [],
   "pending": [
-    "0x5f0b2899e12a24670c9ffc7e5694c6fcc7d2d8005aee9fac0804783aac105d6e"
+    "0xc635a76efff6376cadb28d4f3f32a541b33922575d3a1d0ce06a72b9314cea49"
   ],
   "returns": {},
-  "timestamp": 1727160086,
+  "timestamp": 1727159904,
   "chain": 55007,
   "commit": "0a32ff9"
 }
