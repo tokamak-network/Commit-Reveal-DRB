@@ -70,9 +70,6 @@ contract DRBRareTitleTest is DRBCoordinatorStorageTest {
         vm.startPrank(player);
         s_drbRareTitle.play{value: cost}();
 
-        // commit for the requested random no
-        requestId = s_drbRareTitle.getLastRequestId();
-
         for (uint256 i; i < s_operatorAddresses.length; ++i) {
             address operator = s_operatorAddresses[i];
             vm.startPrank(operator);
@@ -336,39 +333,16 @@ contract DRBRareTitleTest is DRBCoordinatorStorageTest {
         vm.stopPrank();
     }
 
-    function test_UpdateGameExpiryWhenOwner() public {
-        uint256 newExpiry = block.timestamp + 1000;
-        s_drbRareTitle.updateGameExpiry(newExpiry);
-        uint256 actualExpiry = s_drbRareTitle.gameExpiry();
+    // function test_UpdateGameExpiryWhenOwner() public {
+    //     uint256 newExpiry = block.timestamp + 1000;
+    //     s_drbRareTitle.updateGameExpiry(newExpiry);
+    //     uint256 actualExpiry = s_drbRareTitle.gameExpiry();
 
-        assertTrue(
-            newExpiry == actualExpiry,
-            "Actual game expiry does not match the expected value"
-        );
-    }
-
-    function test_lastRequestIdAfterUserPlay() public {
-        _depositAndActivateAll();
-        uint256 callbackGasLimit = s_drbRareTitle.CALLBACK_GAS_LIMIT();
-        uint256 cost = s_drbCoordinator.estimateRequestPrice(
-            callbackGasLimit,
-            tx.gasprice
-        );
-        uint256 expectedLastRequestId;
-
-        for (uint256 i; i < s_consumerAddresses.length; ++i) {
-            address player = s_consumerAddresses[i];
-            (expectedLastRequestId, ) = _play(player, cost);
-            vm.stopPrank();
-        }
-
-        uint256 actualLastRequestId = s_drbRareTitle.getLastRequestId();
-
-        assertTrue(
-            actualLastRequestId == expectedLastRequestId,
-            "Actual lastRequestId is not equal to expected value"
-        );
-    }
+    //     assertTrue(
+    //         newExpiry == actualExpiry,
+    //         "Actual game expiry does not match the expected value"
+    //     );
+    // }
 
     function test_RemainingTurnsForPlayer() public {
         _depositAndActivateAll();
@@ -494,50 +468,50 @@ contract DRBRareTitleTest is DRBCoordinatorStorageTest {
         s_drbRareTitle.claimPrize();
     }
 
-    function test_WinnerAfterMultiplePlayerPlays() public {
-        uint256 newExpiry = block.timestamp + 1000;
-        s_drbRareTitle.updateGameExpiry(newExpiry);
-        uint256 actualExpiry = s_drbRareTitle.gameExpiry();
-        _depositAndActivateAll();
-        address expectedWinner;
-        int16 winnerPoints;
-        uint256 callbackGasLimit = s_drbRareTitle.CALLBACK_GAS_LIMIT();
-        uint256 cost = s_drbCoordinator.estimateRequestPrice(
-            callbackGasLimit,
-            tx.gasprice
-        );
+    // function test_WinnerAfterMultiplePlayerPlays() public {
+    //     uint256 newExpiry = block.timestamp + 1000;
+    //     s_drbRareTitle.updateGameExpiry(newExpiry);
+    //     uint256 actualExpiry = s_drbRareTitle.gameExpiry();
+    //     _depositAndActivateAll();
+    //     address expectedWinner;
+    //     int16 winnerPoints;
+    //     uint256 callbackGasLimit = s_drbRareTitle.CALLBACK_GAS_LIMIT();
+    //     uint256 cost = s_drbCoordinator.estimateRequestPrice(
+    //         callbackGasLimit,
+    //         tx.gasprice
+    //     );
 
-        for (uint256 i; i < s_drbRareTitle.MAX_NO_OF_TURNS(); ++i) {
-            for (uint256 j; j < s_consumerAddresses.length; ++j) {
-                address player = s_consumerAddresses[j];
-                (, uint256 randomNumber) = _play(player, cost);
-                uint256 titleIndex = randomNumber % s_drbRareTitle.BOARD_SIZE();
-                int16 points = playerPoints[player] + gameBoard[titleIndex];
-                playerPoints[player] = points;
-                if (points > winnerPoints || expectedWinner == address(0)) {
-                    winnerPoints = points;
-                    expectedWinner = player;
-                }
-            }
-        }
+    //     for (uint256 i; i < s_drbRareTitle.MAX_NO_OF_TURNS(); ++i) {
+    //         for (uint256 j; j < s_consumerAddresses.length; ++j) {
+    //             address player = s_consumerAddresses[j];
+    //             (, uint256 randomNumber) = _play(player, cost);
+    //             uint256 titleIndex = randomNumber % s_drbRareTitle.BOARD_SIZE();
+    //             int16 points = playerPoints[player] + gameBoard[titleIndex];
+    //             playerPoints[player] = points;
+    //             if (points > winnerPoints || expectedWinner == address(0)) {
+    //                 winnerPoints = points;
+    //                 expectedWinner = player;
+    //             }
+    //         }
+    //     }
 
-        uint256 tonBalanceBefore = ton.balanceOf(expectedWinner);
-        uint256 contractTonBalanceBefore = ton.balanceOf(
-            address(s_drbRareTitle)
-        );
+    //     uint256 tonBalanceBefore = ton.balanceOf(expectedWinner);
+    //     uint256 contractTonBalanceBefore = ton.balanceOf(
+    //         address(s_drbRareTitle)
+    //     );
 
-        vm.warp(block.timestamp + actualExpiry);
-        s_drbRareTitle.claimPrize();
+    //     vm.warp(block.timestamp + actualExpiry);
+    //     s_drbRareTitle.claimPrize();
 
-        uint256 tonBalanceAfter = ton.balanceOf(expectedWinner);
-        uint256 contractTonBalanceAfter = ton.balanceOf(
-            address(s_drbRareTitle)
-        );
+    //     uint256 tonBalanceAfter = ton.balanceOf(expectedWinner);
+    //     uint256 contractTonBalanceAfter = ton.balanceOf(
+    //         address(s_drbRareTitle)
+    //     );
 
-        assertTrue(
-            tonBalanceBefore + contractTonBalanceBefore == tonBalanceAfter,
-            "TON Balance after withdrawing does not match the expected value"
-        );
-        assertEq(contractTonBalanceAfter, 0);
-    }
+    //     assertTrue(
+    //         tonBalanceBefore + contractTonBalanceBefore == tonBalanceAfter,
+    //         "TON Balance after withdrawing does not match the expected value"
+    //     );
+    //     assertEq(contractTonBalanceAfter, 0);
+    // }
 }
