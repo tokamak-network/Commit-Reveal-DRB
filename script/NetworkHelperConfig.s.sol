@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {Script} from "forge-std/Script.sol";
+import {Script, console2} from "forge-std/Script.sol";
 import {IOVM_GasPriceOracle} from "../src/interfaces/IOVM_GasPriceOracle.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {MockTON} from "../test/shared/MockTON.sol";
 
 contract NetworkHelperConfig is Script {
     struct NetworkConfig {
@@ -10,6 +12,9 @@ contract NetworkHelperConfig is Script {
         uint256 compensateAmount;
         uint256 flatFee;
         uint256 l1GasCostMode;
+        uint256 gameExpiry;
+        IERC20 tonToken;
+        uint256 reward;
     }
     address private constant OVM_GASPRICEORACLE_ADDR =
         address(0x420000000000000000000000000000000000000F);
@@ -71,11 +76,14 @@ contract NetworkHelperConfig is Script {
                 activationThreshold: activationThreshold,
                 compensateAmount: compensateAmount,
                 flatFee: flatFee,
-                l1GasCostMode: 2
+                l1GasCostMode: 2,
+                gameExpiry: block.timestamp + 60 * 60 * 24,
+                tonToken: IERC20(0x7c6b91D9Be155A6Db01f749217d76fF02A7227F2),
+                reward: 100 ether
             });
     }
 
-    function getAnvilConfig() public view returns (NetworkConfig memory) {
+    function getAnvilConfig() public returns (NetworkConfig memory) {
         uint256 flatFee = 0.001 ether;
         uint256 compensateAmount = 0.0005 ether;
         uint256 activationThreshold = tx.gasprice *
@@ -84,12 +92,19 @@ contract NetworkHelperConfig is Script {
                 MAX_REQUEST_REFUND_GASUSED) +
             compensateAmount +
             flatFee;
+        vm.startBroadcast();
+        MockTON tonToken = new MockTON("TON", "TON");
+        tonToken.mint(address(this), 1000000000000000000000000);
+        vm.stopBroadcast();
         return
             NetworkConfig({
                 activationThreshold: activationThreshold,
                 compensateAmount: compensateAmount,
                 flatFee: flatFee,
-                l1GasCostMode: 3
+                l1GasCostMode: 3,
+                gameExpiry: block.timestamp + 3600,
+                tonToken: tonToken,
+                reward: 1000 ether
             });
     }
 
@@ -124,7 +139,10 @@ contract NetworkHelperConfig is Script {
                 activationThreshold: activationThreshold,
                 compensateAmount: compensateAmount,
                 flatFee: flatFee,
-                l1GasCostMode: 1
+                l1GasCostMode: 1,
+                gameExpiry: block.timestamp + 60 * 60 * 24,
+                tonToken: IERC20(address(0)),
+                reward: 1000 ether
             });
     }
 
@@ -153,7 +171,10 @@ contract NetworkHelperConfig is Script {
                 activationThreshold: activationThreshold,
                 compensateAmount: compensateAmount,
                 flatFee: flatFee,
-                l1GasCostMode: 2
+                l1GasCostMode: 2,
+                gameExpiry: block.timestamp + 60 * 60 * 24,
+                tonToken: IERC20(0x7c6b91D9Be155A6Db01f749217d76fF02A7227F2),
+                reward: 1000 ether
             });
     }
 
