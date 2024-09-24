@@ -118,12 +118,16 @@ contract DRBCoordinator is
             round
         ].length - 1;
 
-        if (ruleNum == 0) {
+        if (ruleNum == 0 || (ruleNum == 2 && revealLength == 0)) {
             uint256 totalSlashAmount = activatedOperatorsAtRoundLength *
                 s_requestInfo[round].minDepositForOperator;
-            payable(msg.sender).transfer(
-                totalSlashAmount + s_requestInfo[round].cost
-            );
+            // payable(msg.sender).transfer(
+            //     totalSlashAmount + s_requestInfo[round].cost
+            // );
+            (bool sent, ) = payable(msg.sender).call{
+                value: totalSlashAmount + s_requestInfo[round].cost
+            }("");
+            require(sent, FailedToSendEther());
         } else {
             uint256 requestRefundTxCostAndCompensateAmount = s_requestInfo[
                 round
@@ -179,9 +183,66 @@ contract DRBCoordinator is
                     }
                 }
             }
-            payable(msg.sender).transfer(refundAmount);
+            //payable(msg.sender).transfer(refundAmount);
+            (bool sent, ) = payable(msg.sender).call{value: refundAmount}("");
+            require(sent, FailedToSendEther());
         }
         emit Refund(round);
+    }
+
+    function getRefundRuleNumsForRounds(
+        uint256[] memory rounds
+    ) public view returns (uint256[] memory ruleNums) {
+        ruleNums = new uint256[](rounds.length);
+        for (uint256 i = 0; i < rounds.length; i++) {
+            uint256 round = rounds[i];
+            uint256 commitEndTime = s_roundInfo[round].commitEndTime;
+            uint256 commitLength = s_commits[round].length;
+            uint256 revealLength = s_reveals[round].length;
+            if (
+                block.timestamp >
+                s_requestInfo[round].requestedTime + MAX_WAIT &&
+                commitLength == 0
+            ) ruleNums[i] = 1;
+            else if (commitLength > 0) {
+                if (commitLength < 2 && block.timestamp > commitEndTime)
+                    ruleNums[i] = 2;
+                else if (
+                    block.timestamp > commitEndTime + REVEAL_DURATION &&
+                    revealLength < commitLength
+                ) ruleNums[i] = 3;
+            }
+        }
+        return ruleNums;
+    }
+
+    function getRefundConditionInfos(
+        uint256[] memory rounds
+    )
+        public
+        view
+        returns (
+            uint256[] memory commitEndTimes,
+            uint256[] memory commitLengths,
+            uint256[] memory revealLengths,
+            uint256[] memory requestedTimes,
+            uint256 maxWait,
+            uint256 revealDuration
+        )
+    {
+        commitEndTimes = new uint256[](rounds.length);
+        commitLengths = new uint256[](rounds.length);
+        revealLengths = new uint256[](rounds.length);
+        requestedTimes = new uint256[](rounds.length);
+        maxWait = MAX_WAIT;
+        revealDuration = REVEAL_DURATION;
+        for (uint256 i = 0; i < rounds.length; i++) {
+            uint256 round = rounds[i];
+            commitEndTimes[i] = s_roundInfo[round].commitEndTime;
+            commitLengths[i] = s_commits[round].length;
+            revealLengths[i] = s_reveals[round].length;
+            requestedTimes[i] = s_requestInfo[round].requestedTime;
+        }
     }
 
     function calculateRequestPrice(
