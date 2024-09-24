@@ -13,48 +13,48 @@ import {DRBConsumerBase} from "./DRBConsumerBase.sol";
  *         generation and rewards players with tokens.
  */
 contract RareTitle is DRBConsumerBase, ReentrancyGuard, Ownable {
+    enum RequestStatus {
+        NOTREQUESTED,
+        REQUESTED,
+        FULFILLED,
+        REFUNDED
+    }
     // Struct to store player information
     struct User {
         int16 totalPoints;
         uint8 totalTurns;
+        uint256[] requestIds;
     }
 
-    struct RequestStatus {
-        bool requested; // whether the request has been made
-        bool fulfilled; // whether the request has been successfully fulfilled
+    struct RequestInfo {
         address player;
         uint256 randomNumber;
+        RequestStatus status;
     }
 
-    struct Title {
-        int8 points;
-        uint8 maxCount;
-    }
-
-    mapping(uint256 requestId => RequestStatus requestStatus) public s_requests;
+    mapping(uint256 requestId => RequestInfo requestInfo) public s_requests;
 
     // Constants
     uint8 public constant BOARD_SIZE = 100;
     uint8 public constant MAX_NO_OF_TURNS = 10;
-    uint32 public constant CALLBACK_GAS_LIMIT = 50000; // Depends on the number of requested values that you request
+    uint32 public constant CALLBACK_GAS_LIMIT = 120000; // Depends on the number of requested values that you request
 
     // Storage Variables
     IERC20 public tonToken;
     bool public rewardClaimed;
-    uint256 public gameExpiry; // Time at which the game expires
     uint256 public reward; // Total TON reward set by the owner
-    uint256[] public requestIds; // past requests Id.
-    Title[] public titles;
+    int16 private winnerPoint = -100;
 
-    address private winner;
-    int8[BOARD_SIZE] private gameBoard;
+    uint256 private gameExpiry; // Time at which the game expires
+    address[] private winners;
+    uint256 private refundRequestId;
     mapping(address => User) private playerInfo; // Mapping of each user position
 
     // Events
     event RequestFulfilled(uint256 requestId, uint256 randomWord);
     event GameExpiryUpdated(uint256 gameExpiry);
     event FundsWithdrawn(uint256 amount);
-    event RewardClaimed(address winner, uint256 reward);
+    event RewardClaimed(address[] winners, uint256 reward);
 
     // Errors
     error InvalidGameExpiry(uint256 newGameExpiry);
@@ -99,8 +99,6 @@ contract RareTitle is DRBConsumerBase, ReentrancyGuard, Ownable {
         IERC20 _ton,
         uint256 _reward
     ) DRBConsumerBase(_rngCoordinator) Ownable(msg.sender) {
-        _initializeBoard();
-
         require(_gameExpiry != 0, InvalidGameExpiry(_gameExpiry));
         gameExpiry = _gameExpiry;
 
@@ -111,18 +109,59 @@ contract RareTitle is DRBConsumerBase, ReentrancyGuard, Ownable {
         reward = _reward;
     }
 
-    function viewTotalPoints() public view returns(int16 totalPoints) {
+    receive() external payable override {
+        if (msg.sender == address(i_drbCoordinator)) {
+            uint256 requestId = refundRequestId;
+            RequestInfo storage request = s_requests[requestId];
+            request.status = RequestStatus.REFUNDED;
+            address player = request.player;
+            // refund
+            unchecked {
+                playerInfo[player].totalTurns--;
+            }
+            payable(player).transfer(msg.value);
+            refundRequestId = 0;
+        }
+    }
+
+    function viewTotalPoints() public view returns (int16 totalPoints) {
         User memory user = playerInfo[msg.sender];
         totalPoints = user.totalPoints;
     }
 
-    function viewRemainingTurns() public view returns(uint256 remainingTurns) {
+    function viewRemainingTurns() public view returns (uint256 remainingTurns) {
         User memory user = playerInfo[msg.sender];
         remainingTurns = MAX_NO_OF_TURNS - user.totalTurns;
     }
 
-    function getLastRequestId() public view returns(uint256 requestId) {
-        requestId = requestIds[requestIds.length - 1];
+    function viewEventInfos()
+        public
+        view
+        returns (
+            uint256[] memory requestIds,
+            uint256[] memory randomNumbers,
+            uint8[] memory requestStatus,
+            int16 totalPoints,
+            uint8 totalTurns,
+            int16 _winnerPoint,
+            uint256 winnerLength,
+            uint256 _gameExpiry
+        )
+    {
+        requestIds = playerInfo[msg.sender].requestIds;
+        uint256 length = requestIds.length;
+        requestStatus = new uint8[](length);
+        randomNumbers = new uint256[](length);
+        for (uint256 i = 0; i < length; i++) {
+            RequestInfo memory request = s_requests[requestIds[i]];
+            requestStatus[i] = uint8(request.status);
+            randomNumbers[i] = request.randomNumber;
+        }
+        totalPoints = playerInfo[msg.sender].totalPoints;
+        totalTurns = playerInfo[msg.sender].totalTurns;
+        _winnerPoint = winnerPoint;
+        winnerLength = winners.length;
+        _gameExpiry = gameExpiry;
     }
 
     /**
@@ -132,18 +171,19 @@ contract RareTitle is DRBConsumerBase, ReentrancyGuard, Ownable {
      *      The request ID is stored and associated with the player for later processing.
      * @notice Reverts with `UserTurnsExhausted` if the player has exhausted their allowed turns.
      */
-    function play() external payable gameActive returns(uint256 requestId) {
+    function play() external payable gameActive returns (uint256 requestId) {
         User storage user = playerInfo[msg.sender];
         if (user.totalTurns == MAX_NO_OF_TURNS) {
             revert UserTurnsExhausted(msg.sender);
         }
-        user.totalTurns++;
-
+        unchecked {
+            ++user.totalTurns;
+        }
         requestId = _requestRandomNumber(CALLBACK_GAS_LIMIT);
-        RequestStatus storage request = s_requests[requestId];
-        request.requested = true;
+        RequestInfo storage request = s_requests[requestId];
+        request.status = RequestStatus.REQUESTED;
         request.player = msg.sender;
-        requestIds.push(requestId);
+        user.requestIds.push(requestId);
     }
 
     /**
@@ -152,7 +192,7 @@ contract RareTitle is DRBConsumerBase, ReentrancyGuard, Ownable {
      *      been claimed, and verifies the contract has enough balance to transfer the reward.
      *      Emits a {RewardClaimed} event upon successful transfer of the reward.
      */
-    function claimPrize() external gameExpired {
+    function claimPrize() external gameExpired onlyOwner {
         if (rewardClaimed) {
             revert RewardAlreadyClaimed();
         }
@@ -162,10 +202,12 @@ contract RareTitle is DRBConsumerBase, ReentrancyGuard, Ownable {
         if (balance < reward) {
             revert InsufficientBalance(balance, reward);
         }
-
-        tonToken.transfer(winner, reward);
+        uint256 distribution = reward / winners.length;
+        for (uint256 i = 0; i < winners.length; i++) {
+            tonToken.transfer(winners[i], distribution);
+        }
         rewardClaimed = true;
-        emit RewardClaimed(winner, reward);
+        emit RewardClaimed(winners, reward);
     }
 
     /**
@@ -230,63 +272,52 @@ contract RareTitle is DRBConsumerBase, ReentrancyGuard, Ownable {
         uint256 _requestId,
         uint256 _randomWord
     ) internal override {
-        if (!s_requests[_requestId].requested) {
+        if (s_requests[_requestId].status != RequestStatus.REQUESTED) {
             revert RequestNotFound(_requestId);
         }
-        RequestStatus storage request = s_requests[_requestId];
-        request.fulfilled = true;
+        RequestInfo storage request = s_requests[_requestId];
+        request.status = RequestStatus.FULFILLED;
         request.randomNumber = _randomWord;
-        uint256 boardPosition = _randomWord % BOARD_SIZE;
         address _player = request.player;
-        User storage player = playerInfo[_player];
-        player.totalPoints += gameBoard[boardPosition];
-
-        if (
-            winner == address(0) ||
-            playerInfo[winner].totalPoints < player.totalPoints
-        ) {
-            winner = _player;
+        int16 addPoint;
+        uint256 modBoardSize = _randomWord % BOARD_SIZE;
+        if (modBoardSize > 53) addPoint = -5;
+        else if (modBoardSize > 13) addPoint = 10;
+        else if (modBoardSize > 3) addPoint = 20;
+        else if (modBoardSize > 0) addPoint = 30;
+        else addPoint = 100;
+        int16 myTotalPoint;
+        unchecked {
+            myTotalPoint = playerInfo[_player].totalPoints += addPoint;
         }
+        if (myTotalPoint > winnerPoint) {
+            winnerPoint = myTotalPoint;
+            delete winners;
+            winners.push(_player);
+        } else if (myTotalPoint == winnerPoint) {
+            winners.push(_player);
+        }
+    }
 
-        emit RequestFulfilled(_requestId, _randomWord);
+    function getRefund(uint256 requestId) external override nonReentrant {
+        refundRequestId = requestId;
+        i_drbCoordinator.getRefund(requestId);
     }
 
     /**
-     * @dev Initializes the game board by populating it with a predefined set of `Title` objects. 
-     *      The function fills the `gameBoard` with `points` from the available titles, ensuring 
+     * @dev Initializes the game board by populating it with a predefined set of `Title` objects.
+     *      The function fills the `gameBoard` with `points` from the available titles, ensuring
      *      that the titles are placed according to their maximum count.
-     * 
+     *
      *      The titles are:
      *      - Title 1: 100 points, total count of 1
      *      - Title 2: 30 points, total count of 3
      *      - Title 3: 20 points, total count of 10
      *      - Title 4: 10 points, total count of 40
      *      - Title 5: -5 points, total count of 46
-     * 
+     *
      *      Once the `total` for a particular title is reached, the function proceeds to the next title.
      *
      * @notice This function must be called internally to set up the initial state of the game board.
      */
-    function _initializeBoard() internal {
-        titles.push(Title(int8(100), 1));
-        titles.push(Title(int8(30), 3));
-        titles.push(Title(int8(20), 10));
-        titles.push(Title(int8(10), 40));
-        titles.push(Title(int8(-5), 46));
-        uint256 j;
-
-        // Randomly fill the board
-        for (uint256 i = 0; i < BOARD_SIZE; ++i) {
-            Title memory title = titles[j];
-
-            // Check if the title can be placed
-            if (title.maxCount == 0) {
-                ++j;
-                title = titles[j];
-            }
-            gameBoard[i] = title.points;
-            title.maxCount--;
-            titles[j] = title;
-        }
-    }
 }

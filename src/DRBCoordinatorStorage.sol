@@ -78,6 +78,7 @@ contract DRBCoordinatorStorage {
     error NotConsumer();
     error ACTIVATED_OPERATORS_LIMIT_REACHED();
     error ExceedCallbackGasLimit();
+    error FailedToSendEther();
 
     /// *** Events ***
     event RandomNumberRequested(uint256 round, address[] activatedOperators);

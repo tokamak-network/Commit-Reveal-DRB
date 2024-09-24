@@ -23,7 +23,7 @@ abstract contract DRBConsumerBase {
         i_drbCoordinator = IDRBCoordinator(rngCoordinator);
     }
 
-    receive() external payable {}
+    receive() external payable virtual {}
 
     /**
      * @return requestId The ID of the request
@@ -64,7 +64,7 @@ abstract contract DRBConsumerBase {
         fulfillRandomWords(requestId, randomNumber);
     }
 
-    function getRefund(uint256 requestId) external {
+    function getRefund(uint256 requestId) external virtual {
         i_drbCoordinator.getRefund(requestId);
     }
 }
