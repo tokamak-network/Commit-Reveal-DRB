@@ -15,7 +15,10 @@ contract DeployDRBCoordinator is Script {
             uint256 activationThreshold,
             uint256 compensateAmount,
             uint256 flatFee,
-            uint256 l1GasCostMode
+            uint256 l1GasCostMode,
+            ,
+            ,
+
         ) = networkHelperConfig.activeNetworkConfig();
         drbCoordinator = deployDRBCoordinator(
             activationThreshold,
