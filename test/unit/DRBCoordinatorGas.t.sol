@@ -459,4 +459,15 @@ contract DRBCoodinatorGasTest is BaseTest {
             networkConfig.l1GasCostMode
         );
     }
+
+    function testGas_RareTitleFulfill() public {
+        for (uint256 i = 100; i < 120; i++) {
+            s_consumerExampleFulfillRandomWord.rawFulfillRandomWords2(
+                i,
+                uint256(keccak256(abi.encodePacked(i)))
+            );
+            uint256 gasUsed = vm.lastCallGas().gasTotalUsed;
+            console2.log("fulfillRandomWords2 gasUsed", gasUsed);
+        }
+    }
 }
