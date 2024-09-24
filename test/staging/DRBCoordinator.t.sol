@@ -292,7 +292,7 @@ contract DRBCoordinatorTest is DRBCoordinatorStorageTest {
     /// 3. RevealPhase is over and at least one person hasn't revealed.
 
     /// rule 1
-    function test_RefundRule1() public make5Activate {
+    function test_RefundRule1ConsumerExample() public make5Activate {
         uint256[5] memory depositAmountsBefore;
         for (uint256 i; i < s_operatorAddresses.length; i++) {
             depositAmountsBefore[i] = s_drbCoordinator.getDepositAmount(
@@ -351,7 +351,7 @@ contract DRBCoordinatorTest is DRBCoordinatorStorageTest {
     }
 
     /// rule 2
-    function test_RefundRule2() public make5Activate {
+    function test_RefundRule2ConsumerExample() public make5Activate {
         uint256[5] memory depositAmountsBefore;
         for (uint256 i; i < s_operatorAddresses.length; i++) {
             depositAmountsBefore[i] = s_drbCoordinator.getDepositAmount(
@@ -467,7 +467,7 @@ contract DRBCoordinatorTest is DRBCoordinatorStorageTest {
     }
 
     /// rule 3
-    function test_RefundRule3() public make5Activate {
+    function test_RefundRule3ConsumerExample() public make5Activate {
         uint256[5] memory depositAmountsBefore;
         for (uint256 i; i < s_operatorAddresses.length; i++) {
             depositAmountsBefore[i] = s_drbCoordinator.getDepositAmount(
