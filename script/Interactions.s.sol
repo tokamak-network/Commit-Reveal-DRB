@@ -83,6 +83,54 @@ contract ThreeDepositAndActivate is Utils {
     }
 }
 
+contract TwoDepositAndActivateRealNetwork is Utils {
+    // Convert an hexadecimal character to their value
+    function fromHexChar(uint8 c) public pure returns (uint8) {
+        if (bytes1(c) >= bytes1("0") && bytes1(c) <= bytes1("9")) {
+            return c - uint8(bytes1("0"));
+        }
+        if (bytes1(c) >= bytes1("a") && bytes1(c) <= bytes1("f")) {
+            return 10 + c - uint8(bytes1("a"));
+        }
+        if (bytes1(c) >= bytes1("A") && bytes1(c) <= bytes1("F")) {
+            return 10 + c - uint8(bytes1("A"));
+        }
+        revert("fail");
+    }
+
+    // Convert an hexadecimal string to raw bytes
+    function fromHex(string memory s) public pure returns (bytes memory) {
+        bytes memory ss = bytes(s);
+        require(ss.length % 2 == 0); // length must be even
+        bytes memory r = new bytes(ss.length / 2);
+        for (uint i = 0; i < ss.length / 2; ++i) {
+            r[i] = bytes1(
+                fromHexChar(uint8(ss[2 * i])) *
+                    16 +
+                    fromHexChar(uint8(ss[2 * i + 1]))
+            );
+        }
+        return r;
+    }
+
+    function run() public {
+        (DRBCoordinator drbCoordinator, ) = getContracts();
+        uint256 minDeposit = drbCoordinator.getMinDeposit();
+        string memory key = "PRIVATE_KEY";
+        string memory key2 = "PRIVATE_KEY2";
+        // vm.startBroadcast(uint256(bytes32(fromHex(vm.envString(key)))));
+        // drbCoordinator.depositAndActivate{value: minDeposit * 6}();
+        // vm.stopBroadcast();
+        vm.startBroadcast(uint256(bytes32(fromHex(vm.envString(key2)))));
+        drbCoordinator.depositAndActivate{value: minDeposit * 6}();
+        vm.stopBroadcast();
+
+        uint256 activatedOperatorsLength = drbCoordinator
+            .getActivatedOperatorsLength();
+        console2.log("Activated operators length:", activatedOperatorsLength);
+    }
+}
+
 contract ConsumerRequestRandomNumber is Utils {
     function run() public {
         (
@@ -173,6 +221,8 @@ contract Reveal is Utils {
                 " random number:",
                 roundInfo.randomNumber
             );
+            roundInfo = drbCoordinator.getRoundInfo(round);
+            console2.log("fulfill succeed?:", roundInfo.fulfillSucceeded);
         }
     }
 
@@ -218,7 +268,14 @@ contract IncreaseTime is Utils {
         inputs[4] = "evm_increaseTime";
         inputs[5] = Strings.toString(secondsToIncrease);
         vm.ffi(inputs);
-        vm.roll(block.number + 1);
+        string[] memory inputs2 = new string[](5);
+        inputs2[0] = "cast";
+        inputs2[1] = "rpc";
+        inputs2[2] = "--rpc-url";
+        inputs2[3] = "http://localhost:8545";
+        inputs2[4] = "evm_mine";
+        vm.ffi(inputs2);
+        //vm.roll(block.number + 1);
         console2.log("Increased time by:", secondsToIncrease);
     }
 }
