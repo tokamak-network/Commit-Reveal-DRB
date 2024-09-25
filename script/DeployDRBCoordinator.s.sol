@@ -6,7 +6,10 @@ import {DRBCoordinator} from "../src/DRBCoordinator.sol";
 import {NetworkHelperConfig} from "./NetworkHelperConfig.s.sol";
 
 contract DeployDRBCoordinator is Script {
-    function deployDRBCoordinatorUsingConfig() internal returns (DRBCoordinator drbCoordinator) {
+    function deployDRBCoordinatorUsingConfig()
+        public
+        returns (DRBCoordinator drbCoordinator)
+    {
         NetworkHelperConfig networkHelperConfig = new NetworkHelperConfig();
         (uint256 activationThreshold, uint256 compensateAmount, uint256 flatFee, uint256 l1GasCostMode) =
             networkHelperConfig.activeNetworkConfig();
@@ -18,7 +21,7 @@ contract DeployDRBCoordinator is Script {
         uint256 flatFee,
         uint256 compensateAmount,
         uint256 l1GasCostMode
-    ) internal returns (DRBCoordinator drbCoordinator) {
+    ) public returns (DRBCoordinator drbCoordinator) {
         vm.startBroadcast();
         drbCoordinator = new DRBCoordinator(activationThreshold, flatFee, compensateAmount);
         vm.stopBroadcast();

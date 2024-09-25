@@ -109,3 +109,11 @@ verfy-drb:
 verify-consumer-example:
 	@CONSTRUCTOR_ARGS=$$(cast abi-encode "constructor(address)" 0xd7142b66a9804315eA8653bF9Af9bBaB958aa5E6) \
 	forge verify-contract --constructor-args CONSTRUCTOR_ARGS --verifier blockscout --verifier-url $(THANOS_SEPOLIA_EXPLORER) --rpc-url $(THANOS_SEPOLIA_URL) $(ADDRESS) DRBCoordinator
+
+test: test-drbCoordinator test-drbCoordinatorGas
+
+test-drbCoordinator:
+	@forge test --mp test/staging/DRBCoordinator.t.sol --gas-limit 9999999999999999999 -vv
+
+test-drbCoordinatorGas:
+	@forge test --mp test/unit/DRBCoordinatorGas.t.sol --gas-limit 9999999999999999999 -vv --isolate

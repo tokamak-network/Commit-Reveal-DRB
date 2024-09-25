@@ -50,70 +50,110 @@ contract NetworkHelperConfig is Script {
         uint256 compensateAmount = 0.000005 ether;
 
         /// *** get L1 Gas
-        uint256 l1GasCost =
-            _calculateLegacyL1DataFee(ONECOMMIT_ONEREVEAL_CALLDATA_BYTES_SIZE + REQUEST_REFUND_CALLDATA_BYTES_SIZE);
+        uint256 l1GasCost = _calculateLegacyL1DataFee(
+            ONECOMMIT_ONEREVEAL_CALLDATA_BYTES_SIZE
+        );
 
-        uint256 activationThreshold = fixedL2GasPrice
-            * (ONECOMMIT_ONEREVEAL_GASUSED + MAX_CALLBACK_GAS_LIMIT + MAX_REQUEST_REFUND_GASUSED) + l1GasCost;
-        return NetworkConfig({
-            activationThreshold: activationThreshold,
-            compensateAmount: compensateAmount,
-            flatFee: flatFee,
-            l1GasCostMode: 2
-        });
+        l1GasCost += _calculateLegacyL1DataFee(
+            REQUEST_REFUND_CALLDATA_BYTES_SIZE
+        );
+
+        uint256 activationThreshold = fixedL2GasPrice *
+            (ONECOMMIT_ONEREVEAL_GASUSED +
+                MAX_CALLBACK_GAS_LIMIT +
+                MAX_REQUEST_REFUND_GASUSED) +
+            l1GasCost +
+            compensateAmount +
+            flatFee;
+        return
+            NetworkConfig({
+                activationThreshold: activationThreshold,
+                compensateAmount: compensateAmount,
+                flatFee: flatFee,
+                l1GasCostMode: 2
+            });
     }
 
     function getAnvilConfig() public view returns (NetworkConfig memory) {
         uint256 flatFee = 0.001 ether;
         uint256 compensateAmount = 0.0005 ether;
-        uint256 activationThreshold =
-            tx.gasprice * (ONECOMMIT_ONEREVEAL_GASUSED + MAX_CALLBACK_GAS_LIMIT + MAX_REQUEST_REFUND_GASUSED);
-        return NetworkConfig({
-            activationThreshold: activationThreshold,
-            compensateAmount: compensateAmount,
-            flatFee: flatFee,
-            l1GasCostMode: 3
-        });
+        uint256 activationThreshold = tx.gasprice *
+            (ONECOMMIT_ONEREVEAL_GASUSED +
+                MAX_CALLBACK_GAS_LIMIT +
+                MAX_REQUEST_REFUND_GASUSED) +
+            compensateAmount +
+            flatFee;
+        return
+            NetworkConfig({
+                activationThreshold: activationThreshold,
+                compensateAmount: compensateAmount,
+                flatFee: flatFee,
+                l1GasCostMode: 3
+            });
     }
 
-    function getThanosSepoliaConfig() public view returns (NetworkConfig memory) {
-        uint256 fixedL2GasPrice = 1000252;
+    function getThanosSepoliaConfig()
+        public
+        view
+        returns (NetworkConfig memory)
+    {
+        uint256 fixedL2GasPrice = 1000552; // 1000252 + buffer
         uint256 flatFee = 0.00001 ether;
         uint256 compensateAmount = 0.000005 ether;
 
         /// *** get L1 Gas
         uint256 l1GasCost = _calculateOptimismL1DataFee(
-            ONECOMMIT_ONEREVEAL_CALLDATA_BYTES_SIZE + REQUEST_REFUND_CALLDATA_BYTES_SIZE
-                + L1_UNSIGNED_RLP_ENC_TX_DATA_BYTES_SIZE
+            ONECOMMIT_ONEREVEAL_CALLDATA_BYTES_SIZE +
+                L1_UNSIGNED_RLP_ENC_TX_DATA_BYTES_SIZE
+        );
+        l1GasCost += _calculateOptimismL1DataFee(
+            REQUEST_REFUND_CALLDATA_BYTES_SIZE +
+                L1_UNSIGNED_RLP_ENC_TX_DATA_BYTES_SIZE
         );
 
-        uint256 activationThreshold = fixedL2GasPrice
-            * (ONECOMMIT_ONEREVEAL_GASUSED + MAX_CALLBACK_GAS_LIMIT + MAX_REQUEST_REFUND_GASUSED) + l1GasCost;
-        return NetworkConfig({
-            activationThreshold: activationThreshold,
-            compensateAmount: compensateAmount,
-            flatFee: flatFee,
-            l1GasCostMode: 1
-        });
+        uint256 activationThreshold = fixedL2GasPrice *
+            (ONECOMMIT_ONEREVEAL_GASUSED +
+                MAX_CALLBACK_GAS_LIMIT +
+                MAX_REQUEST_REFUND_GASUSED) +
+            l1GasCost +
+            compensateAmount +
+            flatFee;
+        return
+            NetworkConfig({
+                activationThreshold: activationThreshold,
+                compensateAmount: compensateAmount,
+                flatFee: flatFee,
+                l1GasCostMode: 1
+            });
     }
 
     function getTitanConfig() public view returns (NetworkConfig memory) {
-        uint256 fixedL2GasPrice = 1000000;
+        uint256 fixedL2GasPrice = 1003000; // 1000000 + buffer
         uint256 flatFee = 0.001 ether;
         uint256 compensateAmount = 0.0005 ether;
 
         /// *** get L1 Gas
-        uint256 l1GasCost =
-            _calculateLegacyL1DataFee(ONECOMMIT_ONEREVEAL_CALLDATA_BYTES_SIZE + REQUEST_REFUND_CALLDATA_BYTES_SIZE);
+        uint256 l1GasCost = _calculateLegacyL1DataFee(
+            ONECOMMIT_ONEREVEAL_CALLDATA_BYTES_SIZE
+        );
+        l1GasCost += _calculateLegacyL1DataFee(
+            REQUEST_REFUND_CALLDATA_BYTES_SIZE
+        );
 
-        uint256 activationThreshold = fixedL2GasPrice
-            * (ONECOMMIT_ONEREVEAL_GASUSED + MAX_CALLBACK_GAS_LIMIT + MAX_REQUEST_REFUND_GASUSED) + l1GasCost;
-        return NetworkConfig({
-            activationThreshold: activationThreshold,
-            compensateAmount: compensateAmount,
-            flatFee: flatFee,
-            l1GasCostMode: 2
-        });
+        uint256 activationThreshold = fixedL2GasPrice *
+            (ONECOMMIT_ONEREVEAL_GASUSED +
+                MAX_CALLBACK_GAS_LIMIT +
+                MAX_REQUEST_REFUND_GASUSED) +
+            l1GasCost +
+            compensateAmount +
+            flatFee;
+        return
+            NetworkConfig({
+                activationThreshold: activationThreshold,
+                compensateAmount: compensateAmount,
+                flatFee: flatFee,
+                l1GasCostMode: 2
+            });
     }
 
     function _calculateLegacyL1DataFee(uint256 calldataSizeBytes) internal view returns (uint256) {
