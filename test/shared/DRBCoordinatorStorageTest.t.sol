@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
 import {DRBCoordinator} from "../../src/DRBCoordinator.sol";
@@ -5,12 +6,13 @@ import {BaseTest} from "../shared/BaseTest.t.sol";
 import {NetworkHelperConfig} from "../../script/NetworkHelperConfig.s.sol";
 
 abstract contract DRBCoordinatorStorageTest is BaseTest {
-    DRBCoordinator public s_drbCoordinator;
-    address[] s_operatorAddresses;
-    address[] s_consumerAddresses;
-    uint256 s_activationThreshold;
-    uint256 s_compensateAmount;
-    uint256 s_flatFee;
+    DRBCoordinator internal s_drbCoordinator;
+    address[] internal s_operatorAddresses;
+    address[] internal s_consumerAddresses;
+    uint256 internal s_activationThreshold;
+    uint256 private l1GasCostMode;
+    uint256 private s_compensateAmount;
+    uint256 private s_flatFee;
 
     function _setUp() internal virtual {
         BaseTest.setUp(); // Start Prank
@@ -24,7 +26,6 @@ abstract contract DRBCoordinatorStorageTest is BaseTest {
         }
 
         NetworkHelperConfig networkHelperConfig = new NetworkHelperConfig();
-        uint256 l1GasCostMode;
         (
             s_activationThreshold,
             s_compensateAmount,

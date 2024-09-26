@@ -7,52 +7,55 @@ import {ConsumerExample} from "../../src/ConsumerExample.sol";
 import {console2} from "forge-std/Test.sol";
 
 contract DRBCoordinatorTest is DRBCoordinatorStorageTest {
-    ConsumerExample s_consumerExample;
-
-    function mine() public {
-        vm.warp(block.timestamp + 1);
-        vm.roll(block.number + 1);
-    }
+    ConsumerExample private s_consumerExample;
 
     function setUp() public override {
         _setUp();
         s_consumerExample = new ConsumerExample(address(s_drbCoordinator));
     }
 
-    function deposit(address operator) public {
+    function _mine() internal {
+        vm.warp(block.timestamp + 1);
+        vm.roll(block.number + 1);
+    }
+
+    function _deposit(address operator) internal {
         vm.startPrank(operator);
         s_drbCoordinator.deposit{value: s_activationThreshold}();
+
         assertEq(s_drbCoordinator.getDepositAmount(operator), s_activationThreshold);
+
         vm.stopPrank();
+    }
+
+    function _activate(address operator) internal {
+        vm.startPrank(operator);
+        s_drbCoordinator.activate();
+        vm.stopPrank();
+        address[] memory activatedOperators = s_drbCoordinator.getActivatedOperators();
+
+        assertEq(activatedOperators[s_drbCoordinator.getActivatedOperatorIndex(operator)], operator);
     }
 
     function test_Deposit() public {
         vm.stopPrank();
-        deposit(s_operatorAddresses[0]);
+        _deposit(s_operatorAddresses[0]);
         vm.startPrank(OWNER);
     }
 
     function test_5Deposits() public {
         vm.stopPrank();
-        for (uint256 i = 0; i < s_operatorAddresses.length; i++) {
-            deposit(s_operatorAddresses[i]);
+        for (uint256 i; i < s_operatorAddresses.length; ++i) {
+            _deposit(s_operatorAddresses[i]);
         }
         vm.startPrank(OWNER);
     }
 
-    function activate(address operator) public {
-        vm.startPrank(operator);
-        s_drbCoordinator.activate();
-        vm.stopPrank();
-        address[] memory activatedOperators = s_drbCoordinator.getActivatedOperators();
-        assertEq(activatedOperators[s_drbCoordinator.getActivatedOperatorIndex(operator)], operator);
-    }
-
     function test_5Activate() public {
         vm.stopPrank();
-        for (uint256 i = 0; i < s_operatorAddresses.length; i++) {
-            deposit(s_operatorAddresses[i]);
-            activate(s_operatorAddresses[i]);
+        for (uint256 i; i < s_operatorAddresses.length; ++i) {
+            _deposit(s_operatorAddresses[i]);
+            _activate(s_operatorAddresses[i]);
         }
         address[] memory activatedOperators = s_drbCoordinator.getActivatedOperators();
         assertEq(activatedOperators.length - 1, s_operatorAddresses.length);
@@ -62,8 +65,8 @@ contract DRBCoordinatorTest is DRBCoordinatorStorageTest {
     modifier make5Activate() {
         vm.stopPrank();
         for (uint256 i = 0; i < s_operatorAddresses.length; i++) {
-            deposit(s_operatorAddresses[i]);
-            activate(s_operatorAddresses[i]);
+            _deposit(s_operatorAddresses[i]);
+            _activate(s_operatorAddresses[i]);
         }
         _;
     }
@@ -152,7 +155,7 @@ contract DRBCoordinatorTest is DRBCoordinatorStorageTest {
             vm.startPrank(operator);
             s_drbCoordinator.commit(requestId, keccak256(abi.encodePacked(i)));
             vm.stopPrank();
-            mine();
+            _mine();
 
             uint256 commitOrder = s_drbCoordinator.getCommitOrder(requestId, operator);
             assertEq(commitOrder, i + 1);
@@ -164,7 +167,7 @@ contract DRBCoordinatorTest is DRBCoordinatorStorageTest {
         assertEq(roundInfo.fulfillSucceeded, false);
 
         /// ** 3. reveal
-        mine();
+        _mine();
         bytes32[] memory reveals = new bytes32[](s_operatorAddresses.length);
         for (uint256 i; i < s_operatorAddresses.length; i++) {
             address operator = s_operatorAddresses[i];
@@ -203,7 +206,7 @@ contract DRBCoordinatorTest is DRBCoordinatorStorageTest {
             vm.stopPrank();
         }
         vm.warp(block.timestamp + 301);
-        mine();
+        _mine();
         for (uint256 i; i < 2; i++) {
             address operator = s_operatorAddresses[i];
             vm.startPrank(operator);
@@ -274,7 +277,7 @@ contract DRBCoordinatorTest is DRBCoordinatorStorageTest {
         uint256 c = 0;
         s_drbCoordinator.commit(requestId, keccak256(abi.encodePacked(c)));
         vm.stopPrank();
-        mine();
+        _mine();
 
         // ** increase time
         (, uint256 commitDuration,) = s_drbCoordinator.getDurations();
@@ -296,7 +299,7 @@ contract DRBCoordinatorTest is DRBCoordinatorStorageTest {
         uint256 compensateAmount = s_drbCoordinator.getCompensateAmount();
         uint256 refundAmount = requestInfo.cost +
             requestInfo.requestAndRefundCost +
-            s_compensateAmount;
+            compensateAmount;
 
         assertEq(balanceAfter, balanceBefore + refundAmount, "balanceAfter");
 
@@ -353,7 +356,7 @@ contract DRBCoordinatorTest is DRBCoordinatorStorageTest {
             s_drbCoordinator.commit(requestId, keccak256(abi.encodePacked(i)));
             vm.stopPrank();
         }
-        mine();
+        _mine();
 
         // ** 1 reveal
         operator = s_operatorAddresses[0];
@@ -380,7 +383,7 @@ contract DRBCoordinatorTest is DRBCoordinatorStorageTest {
         uint256 compensateAmount = s_drbCoordinator.getCompensateAmount();
         uint256 refundAmount = requestInfo.cost +
             requestInfo.requestAndRefundCost +
-            s_compensateAmount;
+            compensateAmount;
 
         assertEq(balanceAfter, balanceBefore + refundAmount, "balanceAfter");
 
