@@ -81,6 +81,10 @@ contract DRBCoordinatorStorage {
     event Refund(uint256 round);
     event Activated(address operator);
     event DeActivated(address operator);
+    event ActivationThresholdUpdated(uint256 activationThreshold);
+    event FlatFeeUpdated(uint256 flatFee);
+    event CompensationAmountUpdated(uint256 compensationAmount);
+    event PremiumPercentageUpdated(uint256 premiumPercentage);
 
     /// *** Getter Functions ***
     function getDurations() external pure returns (uint256 maxWait, uint256 commitDuration, uint256 revealDuration) {

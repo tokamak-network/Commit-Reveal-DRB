@@ -222,7 +222,7 @@ contract RareTitle is DRBConsumerBase, ReentrancyGuard, Ownable {
      * @param _requestId The ID of the randomness request.
      * @param _randomWord The random number provided by DRBCoordinator.
      */
-    function fulfillRandomWords(uint256 _requestId, uint256 _randomWord) internal override {
+    function _fulfillRandomWords(uint256 _requestId, uint256 _randomWord) internal override {
         if (!s_requests[_requestId].requested) {
             revert RequestNotFound(_requestId);
         }

@@ -17,7 +17,6 @@ contract DRBCoordinator is Ownable, ReentrancyGuardTransient, IDRBCoordinator, D
         s_activationThreshold = activationThreshold;
         s_flatFee = flatFee;
         s_compensateAmount = compensateAmount;
-        s_activatedOperators.push(address(0)); // dummy data
     }
 
     /// ***
@@ -43,7 +42,7 @@ contract DRBCoordinator is Ownable, ReentrancyGuardTransient, IDRBCoordinator, D
         address[] memory activatedOperators;
         s_activatedOperatorsAtRound[round] = activatedOperators = s_activatedOperators;
         uint256 activatedOperatorsLength = activatedOperators.length;
-        uint256 i = 1;
+        uint256 i;
         mapping(address => uint256) storage activatedOperatorOrderAtRound = s_activatedOperatorOrderAtRound[round];
         uint256 activationThreshold = s_activationThreshold;
         do {
@@ -83,7 +82,7 @@ contract DRBCoordinator is Ownable, ReentrancyGuardTransient, IDRBCoordinator, D
         }
         require(ruleNum != 3, NotRefundable());
 
-        uint256 activatedOperatorsAtRoundLength = s_activatedOperatorsAtRound[round].length - 1;
+        uint256 activatedOperatorsAtRoundLength = s_activatedOperatorsAtRound[round].length;
 
         if (ruleNum == 0) {
             uint256 totalSlashAmount = activatedOperatorsAtRoundLength * s_requestInfo[round].minDepositForOperator;
@@ -103,7 +102,7 @@ contract DRBCoordinator is Ownable, ReentrancyGuardTransient, IDRBCoordinator, D
                                 - requestRefundTxCostAndCompensateAmount
                         ) / commitLength
                     );
-                for (uint256 i = 1; i <= activatedOperatorsAtRoundLength; i = _unchecked_inc(i)) {
+                for (uint256 i; i <= activatedOperatorsAtRoundLength; i = _unchecked_inc(i)) {
                     address operator = s_activatedOperatorsAtRound[round][i];
                     if (s_commitOrder[round][operator] != 0) {
                         _checkAndActivateIfNotForceDeactivated(
@@ -120,7 +119,7 @@ contract DRBCoordinator is Ownable, ReentrancyGuardTransient, IDRBCoordinator, D
                         ((commitLength - revealLength) * minDepositAtRound - requestRefundTxCostAndCompensateAmount)
                             / revealLength
                     );
-                for (uint256 i = 1; i <= activatedOperatorsAtRoundLength; i = _unchecked_inc(i)) {
+                for (uint256 i; i <= activatedOperatorsAtRoundLength; i = _unchecked_inc(i)) {
                     address operator = s_activatedOperatorsAtRound[round][i];
                     if (s_revealOrder[round][operator] != 0) {
                         _checkAndActivateIfNotForceDeactivated(
@@ -207,11 +206,11 @@ contract DRBCoordinator is Ownable, ReentrancyGuardTransient, IDRBCoordinator, D
             require(commitOrder[msg.sender] == 0, AlreadyCommitted());
         }
         commits.push(a);
+        commitOrder[msg.sender] = commitLength;
         unchecked {
             ++commitLength;
         }
-        commitOrder[msg.sender] = commitLength;
-        if (commitLength == activatedOperatorsAtRound.length - 1) {
+        if (commitLength == activatedOperatorsAtRound.length) {
             roundInfo.commitEndTime = block.timestamp;
         }
         emit Commit(msg.sender, round);
@@ -230,9 +229,10 @@ contract DRBCoordinator is Ownable, ReentrancyGuardTransient, IDRBCoordinator, D
         require(
             (block.timestamp > commitEndTime && block.timestamp <= commitEndTime + REVEAL_DURATION), NotRevealPhase()
         );
-        require(keccak256(abi.encodePacked(s)) == commits[commitOrder - 1], RevealValueMismatch());
+        require(keccak256(abi.encodePacked(s)) == commits[commitOrder], RevealValueMismatch());
         reveals.push(s);
-        uint256 revealLength = revealOrder[msg.sender] = reveals.length;
+        uint256 revealLength = reveals.length;
+        revealOrder[msg.sender] = revealLength - 1;
         if (revealLength == commitLength) {
             uint256 randomNumber = uint256(keccak256(abi.encodePacked(reveals)));
             roundInfo.randomNumber = randomNumber;
@@ -280,7 +280,6 @@ contract DRBCoordinator is Ownable, ReentrancyGuardTransient, IDRBCoordinator, D
     }
 
     function activate() external nonReentrant {
-        require(s_depositAmount[msg.sender] >= s_activationThreshold, InsufficientDeposit());
         if (s_forceDeactivated[msg.sender]) {
             s_forceDeactivated[msg.sender] = false;
         }
@@ -298,17 +297,16 @@ contract DRBCoordinator is Ownable, ReentrancyGuardTransient, IDRBCoordinator, D
 
     function _activate(address operator) private {
         require(s_activatedOperatorOrder[operator] == 0, AlreadyActivated());
+        require(s_depositAmount[operator] >= s_activationThreshold, InsufficientDeposit());
         uint256 activatedOperatorLength = s_activatedOperators.length;
-        require(activatedOperatorLength <= MAX_ACTIVATED_OPERATORS, ACTIVATED_OPERATORS_LIMIT_REACHED());
+        require(activatedOperatorLength < MAX_ACTIVATED_OPERATORS, ACTIVATED_OPERATORS_LIMIT_REACHED());
         s_activatedOperatorOrder[operator] = activatedOperatorLength;
         s_activatedOperators.push(operator);
         emit Activated(operator);
     }
 
     function _deposit() private {
-        uint256 totalAmount = s_depositAmount[msg.sender] + msg.value;
-        require(totalAmount >= s_activationThreshold, InsufficientAmount());
-        s_depositAmount[msg.sender] = totalAmount;
+        s_depositAmount[msg.sender] = s_depositAmount[msg.sender] + msg.value;
     }
 
     function _deactivate(uint256 activatedOperatorIndex, address operator) private {
@@ -354,17 +352,21 @@ contract DRBCoordinator is Ownable, ReentrancyGuardTransient, IDRBCoordinator, D
     /// ** Owner Interface **
     function setPremiumPercentage(uint256 premiumPercentage) external onlyOwner {
         s_premiumPercentage = premiumPercentage;
+        emit PremiumPercentageUpdated(premiumPercentage);
     }
 
     function setFlatFee(uint256 flatFee) external onlyOwner {
         s_flatFee = flatFee;
+        emit FlatFeeUpdated(flatFee);
     }
 
     function setActivationThreshold(uint256 activationThreshold) external onlyOwner {
         s_activationThreshold = activationThreshold;
+        emit ActivationThresholdUpdated(activationThreshold);
     }
 
     function setCompensations(uint256 compensateAmount) external onlyOwner {
         s_compensateAmount = compensateAmount;
+        emit CompensationAmountUpdated(compensateAmount);
     }
 }
