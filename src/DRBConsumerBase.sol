@@ -24,6 +24,9 @@ abstract contract DRBConsumerBase {
         i_drbCoordinator = IDRBCoordinator(drbCoordinator);
     }
 
+    /**
+     * @dev This function is called when a contract is sent Ether without any data.
+     */
     receive() external payable {}
 
     /**
@@ -53,6 +56,12 @@ abstract contract DRBConsumerBase {
         _fulfillRandomWords(requestId, randomNumber);
     }
 
+    /**
+     * @notice Initiates a refund request for a specified request ID.
+     * @dev This function calls the `getRefund` method on the 
+     *      `drbCoordinator` contract with the provided request ID.
+     * @param requestId The ID of the refund request to be processed.
+     */
     function getRefund(uint256 requestId) external {
         i_drbCoordinator.getRefund(requestId);
     }
