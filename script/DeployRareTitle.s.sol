@@ -24,6 +24,14 @@ contract DeployRareTitle is Script {
             "DRBCoordinator",
             block.chainid
         );
+        MockTON _tonToken;
+        if (tonToken == IERC20(address(0))) {
+            vm.startBroadcast();
+            _tonToken = new MockTON("TON", "TON");
+            _tonToken.mint(address(this), 1000000000000000000000000);
+            vm.stopBroadcast();
+            tonToken = IERC20(address(_tonToken));
+        }
         rareTitle = deployRareTitle(
             gameExpiry,
             tonToken,

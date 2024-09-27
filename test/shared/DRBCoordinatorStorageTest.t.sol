@@ -5,6 +5,7 @@ import {BaseTest} from "../shared/BaseTest.t.sol";
 import {NetworkHelperConfig} from "../../script/NetworkHelperConfig.s.sol";
 import {RareTitle} from "../../src/DRBRareTitle.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {MockTON} from "../shared/MockTON.sol";
 
 abstract contract DRBCoordinatorStorageTest is BaseTest {
     DRBCoordinator public s_drbCoordinator;
@@ -21,12 +22,14 @@ abstract contract DRBCoordinatorStorageTest is BaseTest {
     function _setUp() internal virtual {
         BaseTest.setUp(); // Start Prank
         if (block.chainid == 31337) vm.txGasPrice(100 gwei);
-        vm.deal(OWNER, 10000 ether); // Give some ether to OWNER
+        vm.deal(OWNER, 100000000 ether); // Give some ether to OWNER
         s_operatorAddresses = getRandomAddresses(0, 5);
-        s_consumerAddresses = getRandomAddresses(5, 10);
+        s_consumerAddresses = getRandomAddresses(5, 206);
         for (uint256 i = 0; i < s_operatorAddresses.length; i++) {
-            vm.deal(s_operatorAddresses[i], 10000 ether);
-            vm.deal(s_consumerAddresses[i], 10000 ether);
+            vm.deal(s_operatorAddresses[i], 100000000 ether);
+        }
+        for (uint256 i = 0; i < s_consumerAddresses.length; i++) {
+            vm.deal(s_consumerAddresses[i], 100000000 ether);
         }
 
         NetworkHelperConfig networkHelperConfig = new NetworkHelperConfig();
@@ -49,7 +52,9 @@ abstract contract DRBCoordinatorStorageTest is BaseTest {
         if (uint256(mode) != l1GasCostMode) {
             s_drbCoordinator.setL1FeeCalculation(uint8(l1GasCostMode), 100);
         }
-
+        MockTON tonToken = new MockTON("TON", "TON");
+        tonToken.mint(OWNER, 1000000000000000000000000);
+        s_tonToken = IERC20(address(tonToken));
         s_rareTitle = new RareTitle(
             address(s_drbCoordinator),
             s_gameExpiry,

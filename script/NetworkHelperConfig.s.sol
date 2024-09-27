@@ -83,7 +83,7 @@ contract NetworkHelperConfig is Script {
             });
     }
 
-    function getAnvilConfig() public returns (NetworkConfig memory) {
+    function getAnvilConfig() public view returns (NetworkConfig memory) {
         uint256 flatFee = 0.001 ether;
         uint256 compensateAmount = 0.0005 ether;
         uint256 activationThreshold = tx.gasprice *
@@ -92,10 +92,7 @@ contract NetworkHelperConfig is Script {
                 MAX_REQUEST_REFUND_GASUSED) +
             compensateAmount +
             flatFee;
-        vm.startBroadcast();
-        MockTON tonToken = new MockTON("TON", "TON");
-        tonToken.mint(address(this), 1000000000000000000000000);
-        vm.stopBroadcast();
+
         return
             NetworkConfig({
                 activationThreshold: activationThreshold,
@@ -103,7 +100,7 @@ contract NetworkHelperConfig is Script {
                 flatFee: flatFee,
                 l1GasCostMode: 3,
                 gameExpiry: block.timestamp + 3600,
-                tonToken: tonToken,
+                tonToken: IERC20(address(0)),
                 reward: 1000 ether
             });
     }

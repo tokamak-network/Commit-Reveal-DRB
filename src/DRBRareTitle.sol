@@ -5,6 +5,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {DRBConsumerBase} from "./DRBConsumerBase.sol";
+import {TickBitmap} from "./libraries/TickBitmap.sol";
 
 /**
  * @title RareTitle
@@ -13,6 +14,8 @@ import {DRBConsumerBase} from "./DRBConsumerBase.sol";
  *         generation and rewards players with tokens.
  */
 contract RareTitle is DRBConsumerBase, ReentrancyGuard, Ownable {
+    using TickBitmap for mapping(int16 => uint256);
+
     enum RequestStatus {
         NOTREQUESTED,
         REQUESTED,
@@ -21,7 +24,7 @@ contract RareTitle is DRBConsumerBase, ReentrancyGuard, Ownable {
     }
     // Struct to store player information
     struct User {
-        int16 totalPoints;
+        int24 totalPoints;
         uint8 totalTurns;
         uint256[] requestIds;
     }
@@ -37,18 +40,25 @@ contract RareTitle is DRBConsumerBase, ReentrancyGuard, Ownable {
     // Constants
     uint8 public constant BOARD_SIZE = 100;
     uint8 public constant MAX_NO_OF_TURNS = 10;
-    uint32 public constant CALLBACK_GAS_LIMIT = 120000; // Depends on the number of requested values that you request
+    uint32 public constant CALLBACK_GAS_LIMIT = 150000; // Depends on the number of requested values that you request
+    int24 private constant TICK_SPACING = 5;
+    int24 private constant MIN_TICK = -50;
+    int24 private constant MAX_TICK_PLUS_ONE = 1001;
+    uint8 private constant BLACKLIST_TOTALTURNS = 255;
 
     // Storage Variables
     IERC20 public tonToken;
     bool public rewardClaimed;
     uint256 public reward; // Total TON reward set by the owner
-    int16 private winnerPoint = -100;
 
     uint256 private gameExpiry; // Time at which the game expires
-    address[] private winners;
     uint256 private refundRequestId;
     mapping(address => User) private playerInfo; // Mapping of each user position
+    mapping(int16 wordPos => uint256) private tickBitmap;
+    mapping(int24 score => uint256 count) private scoreCount;
+    mapping(int24 score => address[] players) private scoreToPlayers;
+    mapping(address player => uint256 scoreToPlayersOrder)
+        private scoreToPlayersOrder;
 
     // Events
     event RequestFulfilled(uint256 requestId, uint256 randomWord);
@@ -124,14 +134,16 @@ contract RareTitle is DRBConsumerBase, ReentrancyGuard, Ownable {
         }
     }
 
-    function viewTotalPoints() public view returns (int16 totalPoints) {
+    function viewTotalPoints() public view returns (int24 totalPoints) {
         User memory user = playerInfo[msg.sender];
         totalPoints = user.totalPoints;
     }
 
     function viewRemainingTurns() public view returns (uint256 remainingTurns) {
         User memory user = playerInfo[msg.sender];
-        remainingTurns = MAX_NO_OF_TURNS - user.totalTurns;
+        if (user.totalTurns >= MAX_NO_OF_TURNS) {
+            remainingTurns = 0;
+        } else remainingTurns = MAX_NO_OF_TURNS - user.totalTurns;
     }
 
     function viewEventInfos()
@@ -141,9 +153,9 @@ contract RareTitle is DRBConsumerBase, ReentrancyGuard, Ownable {
             uint256[] memory requestIds,
             uint256[] memory randomNumbers,
             uint8[] memory requestStatus,
-            int16 totalPoints,
+            int24 totalPoints,
             uint8 totalTurns,
-            int16 _winnerPoint,
+            int24 _winnerPoint,
             uint256 winnerLength,
             uint256 _gameExpiry
         )
@@ -159,8 +171,7 @@ contract RareTitle is DRBConsumerBase, ReentrancyGuard, Ownable {
         }
         totalPoints = playerInfo[msg.sender].totalPoints;
         totalTurns = playerInfo[msg.sender].totalTurns;
-        _winnerPoint = winnerPoint;
-        winnerLength = winners.length;
+        (_winnerPoint, winnerLength) = _getWinnerScoreAndCount();
         _gameExpiry = gameExpiry;
     }
 
@@ -173,7 +184,7 @@ contract RareTitle is DRBConsumerBase, ReentrancyGuard, Ownable {
      */
     function play() external payable gameActive returns (uint256 requestId) {
         User storage user = playerInfo[msg.sender];
-        if (user.totalTurns == MAX_NO_OF_TURNS) {
+        if (user.totalTurns >= MAX_NO_OF_TURNS) {
             revert UserTurnsExhausted(msg.sender);
         }
         unchecked {
@@ -202,8 +213,10 @@ contract RareTitle is DRBConsumerBase, ReentrancyGuard, Ownable {
         if (balance < reward) {
             revert InsufficientBalance(balance, reward);
         }
-        uint256 distribution = reward / winners.length;
-        for (uint256 i = 0; i < winners.length; i++) {
+        (int24 winnerScore, uint256 winnerLength) = _getWinnerScoreAndCount();
+        uint256 distribution = reward / winnerLength;
+        address[] memory winners = scoreToPlayers[winnerScore];
+        for (uint256 i = 0; i < winnerLength; i++) {
             tonToken.transfer(winners[i], distribution);
         }
         rewardClaimed = true;
@@ -272,30 +285,71 @@ contract RareTitle is DRBConsumerBase, ReentrancyGuard, Ownable {
         uint256 _requestId,
         uint256 _randomWord
     ) internal override {
-        if (s_requests[_requestId].status != RequestStatus.REQUESTED) {
+        RequestInfo storage request = s_requests[_requestId];
+        if (request.status != RequestStatus.REQUESTED) {
             revert RequestNotFound(_requestId);
         }
-        RequestInfo storage request = s_requests[_requestId];
         request.status = RequestStatus.FULFILLED;
         request.randomNumber = _randomWord;
         address _player = request.player;
-        int16 addPoint;
+        int24 addPoint;
         uint256 modBoardSize = _randomWord % BOARD_SIZE;
         if (modBoardSize > 53) addPoint = -5;
         else if (modBoardSize > 13) addPoint = 10;
         else if (modBoardSize > 3) addPoint = 20;
         else if (modBoardSize > 0) addPoint = 30;
         else addPoint = 100;
-        int16 myTotalPoint;
+        int24 scoreBefore = playerInfo[_player].totalPoints;
+        int24 scoreAfter;
         unchecked {
-            myTotalPoint = playerInfo[_player].totalPoints += addPoint;
+            scoreAfter = scoreBefore + addPoint;
         }
-        if (myTotalPoint > winnerPoint) {
-            winnerPoint = myTotalPoint;
-            delete winners;
-            winners.push(_player);
-        } else if (myTotalPoint == winnerPoint) {
-            winners.push(_player);
+        address[] storage _scoreToPlayers;
+        uint256 order = scoreToPlayersOrder[_player];
+        if (order != 0) {
+            if (--scoreCount[scoreBefore] == 0)
+                tickBitmap.flipTick(scoreBefore, TICK_SPACING);
+
+            _scoreToPlayers = scoreToPlayers[scoreBefore];
+            if (_scoreToPlayers.length > 1) {
+                address lastPlayer = _scoreToPlayers[
+                    _scoreToPlayers.length - 1
+                ];
+                _scoreToPlayers[order - 1] = lastPlayer;
+                scoreToPlayersOrder[lastPlayer] = order;
+            }
+            _scoreToPlayers.pop();
+        }
+        if (++scoreCount[scoreAfter] == 1)
+            tickBitmap.flipTick(scoreAfter, TICK_SPACING);
+
+        // update scoreAfter
+        playerInfo[_player].totalPoints = scoreAfter;
+        _scoreToPlayers = scoreToPlayers[scoreAfter];
+        _scoreToPlayers.push(_player);
+        scoreToPlayersOrder[_player] = _scoreToPlayers.length;
+    }
+
+    function blackList(address[] calldata players) external onlyOwner {
+        for (uint256 i = 0; i < players.length; i++) {
+            address player = players[i];
+            playerInfo[player].totalTurns = BLACKLIST_TOTALTURNS;
+            int24 score = playerInfo[player].totalPoints;
+            // update scoreBefore
+            uint256 order = scoreToPlayersOrder[player];
+            if (order != 0) {
+                if (--scoreCount[score] == 0)
+                    tickBitmap.flipTick(score, TICK_SPACING);
+                address[] storage _scoreToPlayers = scoreToPlayers[score];
+                if (_scoreToPlayers.length > 1) {
+                    address lastPlayer = _scoreToPlayers[
+                        _scoreToPlayers.length - 1
+                    ];
+                    _scoreToPlayers[order - 1] = lastPlayer;
+                    scoreToPlayersOrder[lastPlayer] = order;
+                }
+                _scoreToPlayers.pop();
+            }
         }
     }
 
@@ -304,20 +358,46 @@ contract RareTitle is DRBConsumerBase, ReentrancyGuard, Ownable {
         i_drbCoordinator.getRefund(requestId);
     }
 
-    /**
-     * @dev Initializes the game board by populating it with a predefined set of `Title` objects.
-     *      The function fills the `gameBoard` with `points` from the available titles, ensuring
-     *      that the titles are placed according to their maximum count.
-     *
-     *      The titles are:
-     *      - Title 1: 100 points, total count of 1
-     *      - Title 2: 30 points, total count of 3
-     *      - Title 3: 20 points, total count of 10
-     *      - Title 4: 10 points, total count of 40
-     *      - Title 5: -5 points, total count of 46
-     *
-     *      Once the `total` for a particular title is reached, the function proceeds to the next title.
-     *
-     * @notice This function must be called internally to set up the initial state of the game board.
-     */
+    function getWinnersInfo()
+        external
+        view
+        returns (
+            int24 winnerPoint,
+            uint256 winnerLength,
+            address[] memory winners
+        )
+    {
+        (winnerPoint, winnerLength) = _getWinnerScoreAndCount();
+        winners = scoreToPlayers[winnerPoint];
+    }
+
+    function _getWinnerScoreAndCount() internal view returns (int24, uint256) {
+        int24 currentTick = MAX_TICK_PLUS_ONE;
+        bool found;
+        (currentTick, found) = _findLeftInitializedTick(currentTick);
+        if (!found) return (0, 0);
+        return (currentTick, scoreCount[currentTick]);
+    }
+
+    function _findLeftInitializedTick(
+        int24 currentTick
+    ) private view returns (int24, bool found) {
+        while (currentTick > MIN_TICK) {
+            (int24 nextTick, bool initialized) = tickBitmap
+                .nextInitializedTickWithinOneWord(
+                    currentTick,
+                    TICK_SPACING,
+                    true
+                );
+            if (initialized) {
+                currentTick = nextTick;
+                found = true;
+                break;
+            }
+            unchecked {
+                --currentTick;
+            }
+        }
+        return (currentTick, found);
+    }
 }

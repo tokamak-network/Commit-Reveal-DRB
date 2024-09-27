@@ -191,7 +191,7 @@ contract DRBRareTitleTest is DRBCoordinatorStorageTest {
         uint256 gameIndex = randomNumber % s_drbRareTitle.BOARD_SIZE();
         int16 expectedPoints = gameBoard[gameIndex];
         vm.startPrank(player);
-        int16 actualPoints = s_drbRareTitle.viewTotalPoints();
+        int24 actualPoints = s_drbRareTitle.viewTotalPoints();
         uint256 actualRemainingTurns = s_drbRareTitle.viewRemainingTurns();
         vm.stopPrank();
 
@@ -222,7 +222,7 @@ contract DRBRareTitleTest is DRBCoordinatorStorageTest {
             uint256 gameIndex = randomNumber % s_drbRareTitle.BOARD_SIZE();
             int16 expectedPoints = gameBoard[gameIndex];
             vm.startPrank(player);
-            int16 actualPoints = s_drbRareTitle.viewTotalPoints();
+            int24 actualPoints = s_drbRareTitle.viewTotalPoints();
             uint256 actualRemainingTurns = s_drbRareTitle.viewRemainingTurns();
             vm.stopPrank();
 
@@ -385,7 +385,7 @@ contract DRBRareTitleTest is DRBCoordinatorStorageTest {
         }
 
         vm.startPrank(player);
-        int16 actualPlayerPoints = s_drbRareTitle.viewTotalPoints();
+        int24 actualPlayerPoints = s_drbRareTitle.viewTotalPoints();
         vm.stopPrank();
 
         assertTrue(

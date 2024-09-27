@@ -121,9 +121,6 @@ contract DRBCoordinator is
         if (ruleNum == 0 || (ruleNum == 2 && revealLength == 0)) {
             uint256 totalSlashAmount = activatedOperatorsAtRoundLength *
                 s_requestInfo[round].minDepositForOperator;
-            // payable(msg.sender).transfer(
-            //     totalSlashAmount + s_requestInfo[round].cost
-            // );
             (bool sent, ) = payable(msg.sender).call{
                 value: totalSlashAmount + s_requestInfo[round].cost
             }("");
