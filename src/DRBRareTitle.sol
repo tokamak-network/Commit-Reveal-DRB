@@ -19,6 +19,7 @@ contract RareTitle is DRBConsumerBase, ReentrancyGuard, Ownable {
         uint8 totalTurns;
     }
 
+    // Struct to track player random number request
     struct RequestStatus {
         bool requested; // whether the request has been made
         bool fulfilled; // whether the request has been successfully fulfilled
@@ -26,6 +27,7 @@ contract RareTitle is DRBConsumerBase, ReentrancyGuard, Ownable {
         uint256 randomNumber;
     }
 
+    // Type of title and it's points & total count
     struct Title {
         int8 points;
         uint8 maxCount;
@@ -91,7 +93,11 @@ contract RareTitle is DRBConsumerBase, ReentrancyGuard, Ownable {
     }
 
     /**
-     * @dev Initializes the game board and sets initial values.
+     * @dev Initializes the game board and sets the initial values for the game parameters.
+     * @param _rngCoordinator The address of the random number generator coordinator.
+     * @param _gameExpiry The timestamp representing the expiration time of the game.
+     * @param _ton The address of the ERC20 token contract to be used for rewards.
+     * @param _reward The amount of tokens to be distributed as a reward.
      */
     constructor(address _rngCoordinator, uint256 _gameExpiry, IERC20 _ton, uint256 _reward)
         DRBConsumerBase(_rngCoordinator)
@@ -109,16 +115,29 @@ contract RareTitle is DRBConsumerBase, ReentrancyGuard, Ownable {
         reward = _reward;
     }
 
+    /**
+     * @notice Returns the total points of the player.
+     * @dev Retrieves the total points for the player stored in the playerInfo mapping.
+     * @return totalPoints The total points associated with the player (msg.sender).
+     */
     function viewTotalPoints() public view returns (int16 totalPoints) {
         User memory user = playerInfo[msg.sender];
         totalPoints = user.totalPoints;
     }
 
+    /**
+     * @notice View the remaining turns for the caller.
+     * @return remainingTurns The number of remaining turns the caller has.
+     */
     function viewRemainingTurns() public view returns (uint256 remainingTurns) {
         User memory user = playerInfo[msg.sender];
         remainingTurns = MAX_NO_OF_TURNS - user.totalTurns;
     }
 
+    /**
+     * @notice Returns the last request ID from the requestIds array.
+     * @return requestId The ID of the most recent request.
+     */
     function getLastRequestId() public view returns (uint256 requestId) {
         requestId = requestIds[requestIds.length - 1];
     }
@@ -128,7 +147,6 @@ contract RareTitle is DRBConsumerBase, ReentrancyGuard, Ownable {
      * @dev Ensures that the game is active and that the player hasn't exhausted their allowed number of turns.
      *      Increments the player's total turns and makes a request for a random number.
      *      The request ID is stored and associated with the player for later processing.
-     * @notice Reverts with `UserTurnsExhausted` if the player has exhausted their allowed turns.
      */
     function play() external payable gameActive returns (uint256 requestId) {
         User storage user = playerInfo[msg.sender];
@@ -145,8 +163,8 @@ contract RareTitle is DRBConsumerBase, ReentrancyGuard, Ownable {
     }
 
     /**
-     * @notice Allows the winner to claim their prize after the game has expired.
-     * @dev This function checks if the caller is the winner, ensures the reward has not already
+     * @notice Allows anyone to claim the prize for the winner after the game has expired.
+     * @dev This function checks if the game has expired, ensures the reward has not already
      *      been claimed, and verifies the contract has enough balance to transfer the reward.
      *      Emits a {RewardClaimed} event upon successful transfer of the reward.
      */
@@ -167,10 +185,9 @@ contract RareTitle is DRBConsumerBase, ReentrancyGuard, Ownable {
     }
 
     /**
+     * @notice Only the contract owner can call this function.
      * @dev Updates the game Expiry.
      * @param _newGameExpiry The new game Expiry in seconds.
-     * @notice Only the contract owner can call this function.
-     * @dev Reverts if the new Expiry is the same as the current one.
      */
     function updateGameExpiry(uint256 _newGameExpiry) external gameActive onlyOwner {
         if (_newGameExpiry == gameExpiry || _newGameExpiry == 0) {
@@ -184,8 +201,6 @@ contract RareTitle is DRBConsumerBase, ReentrancyGuard, Ownable {
     /**
      * @notice Withdraws all Ether from the contract to the owner.
      * @dev This function is restricted to the contract owner via the `onlyOwner` modifier.
-     * @dev It reverts with a `NoEtherToWithdraw` error if the contract balance is zero.
-     * @dev Transfers the entire balance to the owner and emits a `FundsWithdrawn` event.
      */
     function withdrawEth() external onlyOwner {
         uint256 balance = address(this).balance;
@@ -200,8 +215,6 @@ contract RareTitle is DRBConsumerBase, ReentrancyGuard, Ownable {
     /**
      * @notice Withdraws all TON from the contract to the owner.
      * @dev This function is restricted to the contract owner via the `onlyOwner` modifier.
-     * @dev It reverts with a `NoAmountToWithdraw` error if the contract balance is zero.
-     * @dev Transfers the entire balance to the owner and emits a `FundsWithdrawn` event.
      */
     function withdrawTon() external onlyOwner {
         uint256 balance = tonToken.balanceOf(address(this));
@@ -242,6 +255,7 @@ contract RareTitle is DRBConsumerBase, ReentrancyGuard, Ownable {
     }
 
     /**
+     * @notice This function must be called internally to set up the initial state of the game board.
      * @dev Initializes the game board by populating it with a predefined set of `Title` objects.
      *      The function fills the `gameBoard` with `points` from the available titles, ensuring
      *      that the titles are placed according to their maximum count.
@@ -254,8 +268,6 @@ contract RareTitle is DRBConsumerBase, ReentrancyGuard, Ownable {
      *      - Title 5: -5 points, total count of 46
      *
      *      Once the `total` for a particular title is reached, the function proceeds to the next title.
-     *
-     * @notice This function must be called internally to set up the initial state of the game board.
      */
     function _initializeBoard() internal {
         titles.push(Title(int8(100), 1));
