@@ -2,9 +2,10 @@
 pragma solidity 0.8.26;
 
 import {DRBCoordinator} from "../../src/DRBCoordinator.sol";
+import { DRBCoordinatorStorage } from "src/DRBCoordinatorStorage.sol";
 import {DRBCoordinatorStorageTest} from "test/shared/DRBCoordinatorStorageTest.t.sol";
 import {ConsumerExample} from "../../src/ConsumerExample.sol";
-import {console2} from "forge-std/Test.sol";
+import { console } from "lib/forge-std/src/console.sol";
 
 contract DRBCoordinatorTest is DRBCoordinatorStorageTest {
     ConsumerExample private s_consumerExample;
@@ -21,6 +22,10 @@ contract DRBCoordinatorTest is DRBCoordinatorStorageTest {
 
     function _deposit(address operator) internal {
         vm.startPrank(operator);
+
+        vm.expectEmit(false, true, true, true);
+        emit DRBCoordinatorStorage.AmountDeposited(s_activationThreshold, operator);
+
         s_drbCoordinator.deposit{value: s_activationThreshold}();
 
         assertEq(s_drbCoordinator.getDepositAmount(operator), s_activationThreshold);
@@ -34,7 +39,7 @@ contract DRBCoordinatorTest is DRBCoordinatorStorageTest {
         vm.stopPrank();
         address[] memory activatedOperators = s_drbCoordinator.getActivatedOperators();
 
-        assertEq(activatedOperators[s_drbCoordinator.getActivatedOperatorIndex(operator)], operator);
+        assertEq(activatedOperators[s_drbCoordinator.getActivatedOperatorIndex(operator) - 1], operator);
     }
 
     function test_Deposit() public {
@@ -58,20 +63,20 @@ contract DRBCoordinatorTest is DRBCoordinatorStorageTest {
             _activate(s_operatorAddresses[i]);
         }
         address[] memory activatedOperators = s_drbCoordinator.getActivatedOperators();
-        assertEq(activatedOperators.length - 1, s_operatorAddresses.length);
+        assertEq(activatedOperators.length, s_operatorAddresses.length);
         vm.startPrank(OWNER);
     }
 
     modifier make5Activate() {
         vm.stopPrank();
-        for (uint256 i = 0; i < s_operatorAddresses.length; i++) {
+        for (uint256 i = 0; i < s_operatorAddresses.length; ++i) {
             _deposit(s_operatorAddresses[i]);
             _activate(s_operatorAddresses[i]);
         }
         _;
     }
 
-    function deactivate(address operator) public {
+    function _deactivate(address operator) internal {
         address[] memory activatedOperatorsBefore = s_drbCoordinator.getActivatedOperators();
         vm.startPrank(operator);
         s_drbCoordinator.deactivate();
@@ -83,12 +88,11 @@ contract DRBCoordinatorTest is DRBCoordinatorStorageTest {
 
     function test_5Deactivate() public make5Activate {
         for (uint256 i = 0; i < s_operatorAddresses.length; i++) {
-            deactivate(s_operatorAddresses[i]);
+            _deactivate(s_operatorAddresses[i]);
         }
         vm.startPrank(OWNER);
         address[] memory activatedOperators = s_drbCoordinator.getActivatedOperators();
-        assertEq(activatedOperators.length, 1);
-        assertEq(activatedOperators[0], address(0));
+        assertEq(activatedOperators.length, 0);
     }
 
     function test_RequestRandomNumber() public make5Activate {
@@ -115,7 +119,7 @@ contract DRBCoordinatorTest is DRBCoordinatorStorageTest {
         assertEq(requestInfo.callbackGasLimit, callbackGasLimit, "callbackGasLimit");
         assertEq(activatedOperatorsAtRound.length, 6, "activatedOperators");
 
-        for (uint256 i; i < s_operatorAddresses.length; i++) {
+        for (uint256 i; i < s_operatorAddresses.length; ++i) {
             uint256 depositAmount = s_drbCoordinator.getDepositAmount(s_operatorAddresses[i]);
             if (depositAmount < s_activationThreshold) {
                 assertEq(s_drbCoordinator.getActivatedOperatorIndex(s_operatorAddresses[i]), 0);
@@ -134,7 +138,7 @@ contract DRBCoordinatorTest is DRBCoordinatorStorageTest {
     function checkBalanceInvariant() public view {
         uint256 balanceOfDRBCoordinator = address(s_drbCoordinator).balance;
         uint256 depositSum;
-        for (uint256 i; i < s_operatorAddresses.length; i++) {
+        for (uint256 i; i < s_operatorAddresses.length; ++i) {
             depositSum += s_drbCoordinator.getDepositAmount(s_operatorAddresses[i]);
         }
         assertEq(
@@ -150,7 +154,7 @@ contract DRBCoordinatorTest is DRBCoordinatorStorageTest {
         uint256 requestId = s_consumerExample.lastRequestId();
 
         /// ** 2. commit
-        for (uint256 i; i < s_operatorAddresses.length; i++) {
+        for (uint256 i; i < s_operatorAddresses.length; ++i) {
             address operator = s_operatorAddresses[i];
             vm.startPrank(operator);
             s_drbCoordinator.commit(requestId, keccak256(abi.encodePacked(i)));
@@ -169,7 +173,7 @@ contract DRBCoordinatorTest is DRBCoordinatorStorageTest {
         /// ** 3. reveal
         _mine();
         bytes32[] memory reveals = new bytes32[](s_operatorAddresses.length);
-        for (uint256 i; i < s_operatorAddresses.length; i++) {
+        for (uint256 i; i < s_operatorAddresses.length; ++i) {
             address operator = s_operatorAddresses[i];
             vm.startPrank(operator);
             s_drbCoordinator.reveal(requestId, bytes32(i));
@@ -186,7 +190,12 @@ contract DRBCoordinatorTest is DRBCoordinatorStorageTest {
         assertEq(roundInfo.randomNumber, randomNumber);
         assertEq(roundInfo.fulfillSucceeded, true);
 
-        for (uint256 i; i < s_operatorAddresses.length; i++) {
+        console.log("Inside if");
+        for (uint256 i; i < s_operatorAddresses.length; ++i) {
+            console.log("Index",i);
+            console.log("s_operatorAddresses.length",s_operatorAddresses.length);
+            console.log("Operator is", s_operatorAddresses[i]);
+            console.log("s_drbCoordinator.getActivatedOperatorIndex(s_operatorAddresses[i])",s_drbCoordinator.getActivatedOperatorIndex(s_operatorAddresses[i]));
             uint256 depositAmount = s_drbCoordinator.getDepositAmount(s_operatorAddresses[i]);
             if (depositAmount < s_activationThreshold) {
                 assertEq(s_drbCoordinator.getActivatedOperatorIndex(s_operatorAddresses[i]), 0);
@@ -199,7 +208,7 @@ contract DRBCoordinatorTest is DRBCoordinatorStorageTest {
         /// ** run one more time
         requestRandomNumber();
         requestId = s_consumerExample.lastRequestId();
-        for (uint256 i; i < 2; i++) {
+        for (uint256 i; i < 2; ++i) {
             address operator = s_operatorAddresses[i];
             vm.startPrank(operator);
             s_drbCoordinator.commit(requestId, keccak256(abi.encodePacked(i)));
@@ -207,7 +216,8 @@ contract DRBCoordinatorTest is DRBCoordinatorStorageTest {
         }
         vm.warp(block.timestamp + 301);
         _mine();
-        for (uint256 i; i < 2; i++) {
+        console.log("hhhhhhhhh");
+        for (uint256 i; i < 2; ++i) {
             address operator = s_operatorAddresses[i];
             vm.startPrank(operator);
             s_drbCoordinator.reveal(requestId, bytes32(i));
@@ -225,7 +235,7 @@ contract DRBCoordinatorTest is DRBCoordinatorStorageTest {
     /// rule 1
     function test_RefundRule1() public make5Activate {
         uint256[5] memory depositAmountsBefore;
-        for (uint256 i; i < s_operatorAddresses.length; i++) {
+        for (uint256 i; i < s_operatorAddresses.length; ++i) {
             depositAmountsBefore[i] = s_drbCoordinator.getDepositAmount(s_operatorAddresses[i]);
         }
         requestRandomNumber();
@@ -244,12 +254,12 @@ contract DRBCoordinatorTest is DRBCoordinatorStorageTest {
         uint256 minDepositAtRound = requestInfo.minDepositForOperator;
 
         uint256[5] memory depositAmountsAfter;
-        for (uint256 i; i < s_operatorAddresses.length; i++) {
+        for (uint256 i; i < s_operatorAddresses.length; ++i) {
             depositAmountsAfter[i] = s_drbCoordinator.getDepositAmount(s_operatorAddresses[i]);
             assertEq(depositAmountsBefore[i] - minDepositAtRound, depositAmountsAfter[i]);
         }
         uint256 slashedAmount = minDepositAtRound;
-        for (uint256 i; i < s_operatorAddresses.length; i++) {
+        for (uint256 i; i < s_operatorAddresses.length; ++i) {
             uint256 updatedDepositAmount = depositAmountsBefore[i] - slashedAmount;
             assertEq(depositAmountsAfter[i], updatedDepositAmount);
             if (updatedDepositAmount < s_activationThreshold) {
@@ -265,7 +275,7 @@ contract DRBCoordinatorTest is DRBCoordinatorStorageTest {
     /// rule 2
     function test_RefundRule2() public make5Activate {
         uint256[5] memory depositAmountsBefore;
-        for (uint256 i; i < s_operatorAddresses.length; i++) {
+        for (uint256 i; i < s_operatorAddresses.length; ++i) {
             depositAmountsBefore[i] = s_drbCoordinator.getDepositAmount(s_operatorAddresses[i]);
         }
         requestRandomNumber();
@@ -304,7 +314,7 @@ contract DRBCoordinatorTest is DRBCoordinatorStorageTest {
         assertEq(balanceAfter, balanceBefore + refundAmount, "balanceAfter");
 
         uint256[5] memory depositAmountsAfter;
-        for (uint256 i; i < s_operatorAddresses.length; i++) {
+        for (uint256 i; i < s_operatorAddresses.length; ++i) {
             depositAmountsAfter[i] = s_drbCoordinator.getDepositAmount(s_operatorAddresses[i]);
         }
         uint256 slashedAmount = minDepositAtRound;
@@ -315,7 +325,7 @@ contract DRBCoordinatorTest is DRBCoordinatorStorageTest {
             uncommittedLength) -
             requestInfo.requestAndRefundCost -
             compensateAmount) / commitLength;
-        for (uint256 i; i < s_operatorAddresses.length; i++) {
+        for (uint256 i; i < s_operatorAddresses.length; ++i) {
             bool isCommitted = s_drbCoordinator.getCommitOrder(requestId, s_operatorAddresses[i]) > 0;
             if (isCommitted) {
                 uint256 updatedDepositAmount = depositAmountsBefore[i] + distributedSlashedAmount;
@@ -342,7 +352,7 @@ contract DRBCoordinatorTest is DRBCoordinatorStorageTest {
     /// rule 3
     function test_RefundRule3() public make5Activate {
         uint256[5] memory depositAmountsBefore;
-        for (uint256 i; i < s_operatorAddresses.length; i++) {
+        for (uint256 i; i < s_operatorAddresses.length; ++i) {
             depositAmountsBefore[i] = s_drbCoordinator.getDepositAmount(s_operatorAddresses[i]);
         }
         requestRandomNumber();
@@ -350,7 +360,7 @@ contract DRBCoordinatorTest is DRBCoordinatorStorageTest {
         address operator;
 
         // ** commits
-        for (uint256 i; i < s_operatorAddresses.length; i++) {
+        for (uint256 i; i < s_operatorAddresses.length; ++i) {
             operator = s_operatorAddresses[i];
             vm.startPrank(operator);
             s_drbCoordinator.commit(requestId, keccak256(abi.encodePacked(i)));
@@ -388,7 +398,7 @@ contract DRBCoordinatorTest is DRBCoordinatorStorageTest {
         assertEq(balanceAfter, balanceBefore + refundAmount, "balanceAfter");
 
         uint256[5] memory depositAmountsAfter;
-        for (uint256 i; i < s_operatorAddresses.length; i++) {
+        for (uint256 i; i < s_operatorAddresses.length; ++i) {
             depositAmountsAfter[i] = s_drbCoordinator.getDepositAmount(s_operatorAddresses[i]);
         }
         uint256 slashedAmount = minDepositAtRound;
@@ -399,7 +409,7 @@ contract DRBCoordinatorTest is DRBCoordinatorStorageTest {
         uint256 distributedSlashedAmount = ((slashedAmount * unrevealedLength) -
             requestInfo.requestAndRefundCost -
             compensateAmount) / revealLength;
-        for (uint256 i; i < s_operatorAddresses.length; i++) {
+        for (uint256 i; i < s_operatorAddresses.length; ++i) {
             bool isRevealed = s_drbCoordinator.getRevealOrder(requestId, s_operatorAddresses[i]) > 0;
             if (isRevealed) {
                 uint256 updatedDepositAmount = depositAmountsBefore[i] + distributedSlashedAmount;

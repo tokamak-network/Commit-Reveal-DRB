@@ -78,6 +78,7 @@ contract DRBCoordinatorStorage {
     event Commit(address operator, uint256 round);
     event Reveal(address operator, uint256 round);
     event Refund(uint256 round);
+    event AmountDeposited(uint256 amount, address operator);
     event Activated(address operator);
     event DeActivated(address operator);
     event ActivationThresholdUpdated(uint256 activationThreshold);
@@ -144,7 +145,7 @@ contract DRBCoordinatorStorage {
      * @return The number of activated operators as a uint256.
      */
     function getActivatedOperatorsLength() external view returns (uint256) {
-        return s_activatedOperators.length - 1;
+        return s_activatedOperators.length;
     }
 
     /**
@@ -180,7 +181,7 @@ contract DRBCoordinatorStorage {
      * @return The number of activated operators at the specified round.
      */
     function getActivatedOperatorsLengthAtRound(uint256 round) external view returns (uint256) {
-        return s_activatedOperatorsAtRound[round].length - 1;
+        return s_activatedOperatorsAtRound[round].length;
     }
 
     /**

@@ -7,6 +7,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {OptimismL1Fees} from "./OptimismL1Fees.sol";
 import {DRBConsumerBase} from "./DRBConsumerBase.sol";
 import {IDRBCoordinator} from "./interfaces/IDRBCoordinator.sol";
+import { console } from "lib/forge-std/src/console.sol";
 
 /// @title DRBCoordinator, distributed random beacon coordinator, using commit-reveal scheme
 /// @author Justin G
@@ -67,12 +68,14 @@ contract DRBCoordinator is Ownable, ReentrancyGuardTransient, IDRBCoordinator, D
             activatedOperatorOrderAtRound[operator] = i;
             uint256 activatedOperatorIndex = s_activatedOperatorOrder[operator];
             if ((s_depositAmount[operator] -= minDepositForThisRound) < activationThreshold) {
+                console.log("Operator getting deactivated while requesting random number is", operator);
                 _deactivate(activatedOperatorIndex, operator);
             }
             unchecked {
                 ++i;
             }
         } while (i < activatedOperatorsLength);
+        console.log("s_drbCoordinator.getActivatedOperatorIndex(s_operatorAddresses[i])", s_activatedOperatorOrder[address(0x717e6a320cf44b4aFAc2b0732D9fcBe2B7fa0Cf6)]);
         emit RandomNumberRequested(round, activatedOperators);
     }
 
@@ -208,6 +211,7 @@ contract DRBCoordinator is Ownable, ReentrancyGuardTransient, IDRBCoordinator, D
             activatedOperatorIndex == 0 && updatedDepositAmount >= minDepositForThisRound
                 && !s_forceDeactivated[operator]
         ) {
+            console.log("Activating the operator", operator);
             _activate(operator);
         }
     }
@@ -273,10 +277,10 @@ contract DRBCoordinator is Ownable, ReentrancyGuardTransient, IDRBCoordinator, D
             require(commitOrder[msg.sender] == 0, AlreadyCommitted());
         }
         commits.push(a);
-        commitOrder[msg.sender] = commitLength;
         unchecked {
             ++commitLength;
         }
+        commitOrder[msg.sender] = commitLength;
         if (commitLength == activatedOperatorsAtRound.length) {
             roundInfo.commitEndTime = block.timestamp;
         }
@@ -301,10 +305,9 @@ contract DRBCoordinator is Ownable, ReentrancyGuardTransient, IDRBCoordinator, D
         require(
             (block.timestamp > commitEndTime && block.timestamp <= commitEndTime + REVEAL_DURATION), NotRevealPhase()
         );
-        require(keccak256(abi.encodePacked(s)) == commits[commitOrder], RevealValueMismatch());
+        require(keccak256(abi.encodePacked(s)) == commits[commitOrder - 1], RevealValueMismatch());
         reveals.push(s);
-        uint256 revealLength = reveals.length;
-        revealOrder[msg.sender] = revealLength - 1;
+        uint256 revealLength = revealOrder[msg.sender] = reveals.length;
         if (revealLength == commitLength) {
             uint256 randomNumber = uint256(keccak256(abi.encodePacked(reveals)));
             roundInfo.randomNumber = randomNumber;
@@ -405,10 +408,12 @@ contract DRBCoordinator is Ownable, ReentrancyGuardTransient, IDRBCoordinator, D
     function _activate(address operator) private {
         require(s_activatedOperatorOrder[operator] == 0, AlreadyActivated());
         require(s_depositAmount[operator] >= s_activationThreshold, InsufficientDeposit());
+
         uint256 activatedOperatorLength = s_activatedOperators.length;
         require(activatedOperatorLength < MAX_ACTIVATED_OPERATORS, ACTIVATED_OPERATORS_LIMIT_REACHED());
-        s_activatedOperatorOrder[operator] = activatedOperatorLength;
+
         s_activatedOperators.push(operator);
+        s_activatedOperatorOrder[operator] = activatedOperatorLength + 1;
         emit Activated(operator);
     }
 
@@ -417,6 +422,7 @@ contract DRBCoordinator is Ownable, ReentrancyGuardTransient, IDRBCoordinator, D
      */
     function _deposit() private {
         s_depositAmount[msg.sender] = s_depositAmount[msg.sender] + msg.value;
+        emit AmountDeposited(msg.value, msg.sender);
     }
 
     /**
@@ -427,10 +433,12 @@ contract DRBCoordinator is Ownable, ReentrancyGuardTransient, IDRBCoordinator, D
      * @param operator The address of the operator to deactivate.
      */
     function _deactivate(uint256 activatedOperatorIndex, address operator) private {
-        address lastOperator = s_activatedOperators[s_activatedOperators.length - 1];
-        s_activatedOperators[activatedOperatorIndex] = lastOperator;
+        if(s_activatedOperators.length != 1){
+            address lastOperator = s_activatedOperators[s_activatedOperators.length - 1];
+            s_activatedOperators[activatedOperatorIndex - 1] = lastOperator;
+            s_activatedOperatorOrder[lastOperator] = activatedOperatorIndex;
+        }
         s_activatedOperators.pop();
-        s_activatedOperatorOrder[lastOperator] = activatedOperatorIndex;
         delete s_activatedOperatorOrder[operator];
         emit DeActivated(operator);
     }
