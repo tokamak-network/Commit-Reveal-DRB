@@ -9,6 +9,7 @@ import {ConsumerExampleFulfillRandomWord} from "../../src/test/ConsumerExampleFu
 import {console2} from "forge-std/Test.sol";
 import {NetworkHelperConfig} from "../../script/NetworkHelperConfig.s.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
+import {RareTitle} from "../../src/DRBRareTitle.sol";
 
 contract DRBCoodinatorGasTest is BaseTest {
     DRBCoordinator s_drbCoordinator;
@@ -426,6 +427,32 @@ contract DRBCoodinatorGasTest is BaseTest {
             castToEtherUnit(networkConfig.flatFee),
             networkConfig.l1GasCostMode
         );
+        DRBCoordinator drbCoordinator = new DRBCoordinator(
+            networkConfig.activationThreshold,
+            networkConfig.flatFee,
+            networkConfig.compensateAmount
+        );
+        drbCoordinator.setL1FeeCalculation(2, 100);
+        console2.log("estimateRequestPrice");
+        console2.log(drbCoordinator.estimateRequestPrice(150000, 1000000));
+
+        OptimismL1FeesExternal _optimismL1FeesExternal = new OptimismL1FeesExternal();
+        _optimismL1FeesExternal.setL1FeeCalculation(2, 100);
+        console2.log(
+            _optimismL1FeesExternal.getL1CostWeiForCalldataSize(
+                bytes
+                    .concat(
+                        abi.encodeWithSelector(RareTitle.play.selector),
+                        hex"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+                    )
+                    .length
+            )
+        );
+        console2.log(
+            _optimismL1FeesExternal.getL1CostWeiForCalldataSize(
+                get2commitrevealCalldata().length
+            )
+        );
 
         vm.selectFork(titanSepoliaFork);
         networkConfig = networkHelperConfig.getTitanSepoliaConfig();
@@ -469,5 +496,71 @@ contract DRBCoodinatorGasTest is BaseTest {
             uint256 gasUsed = vm.lastCallGas().gasTotalUsed;
             console2.log("fulfillRandomWords2 gasUsed", gasUsed);
         }
+    }
+
+    function testGas_titan() public {
+        string memory key = "TITAN_RPC_URL";
+        string memory TITAN_RPC_URL = vm.envString(key);
+        uint256 titanFork = vm.createFork(TITAN_RPC_URL);
+
+        NetworkHelperConfig networkHelperConfig = new NetworkHelperConfig();
+
+        NetworkHelperConfig.NetworkConfig memory networkConfig;
+        vm.selectFork(titanFork);
+        networkConfig = networkHelperConfig.getTitanConfig();
+        console2.log("Titan Config");
+        console2.log(
+            "activationThreshold(ether)",
+            "compensateAmount(ether)",
+            "flatFee(ether)",
+            "l1GasCostMode"
+        );
+        console2.log(
+            castToEtherUnit(networkConfig.activationThreshold),
+            castToEtherUnit(networkConfig.compensateAmount),
+            castToEtherUnit(networkConfig.flatFee),
+            networkConfig.l1GasCostMode
+        );
+        DRBCoordinator drbCoordinator = new DRBCoordinator(
+            networkConfig.activationThreshold,
+            networkConfig.flatFee,
+            networkConfig.compensateAmount
+        );
+        drbCoordinator.setL1FeeCalculation(2, 100);
+        console2.log("estimateRequestPrice");
+        console2.log(drbCoordinator.estimateRequestPrice(150000, 1000000));
+        OptimismL1FeesExternal _optimismL1FeesExternal = new OptimismL1FeesExternal();
+        _optimismL1FeesExternal.setL1FeeCalculation(2, 100);
+        console2.log(
+            (1000000 * (150000 + 511753)) +
+                networkConfig.flatFee +
+                _optimismL1FeesExternal.getL1CostWeiForCalldataSize(139) *
+                4
+        );
+
+        console2.log(
+            _optimismL1FeesExternal.getL1CostWeiForCalldataSize(
+                bytes
+                    .concat(
+                        abi.encodeWithSelector(RareTitle.play.selector),
+                        hex"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+                    )
+                    .length
+            )
+        );
+        console2.log(
+            _optimismL1FeesExternal.getL1CostWeiForCalldataSize(
+                get2commitrevealCalldata().length
+            )
+        );
+        console2.log(
+            _optimismL1FeesExternal.getL1CostWeiForCalldataSize(
+                bytes.concat(getCommitCalldata(), L1_FEE_DATA_PADDING).length
+            ) * 4
+        );
+        console2.log(
+            bytes.concat(getCommitCalldata(), L1_FEE_DATA_PADDING).length,
+            get2commitrevealCalldata().length
+        );
     }
 }
