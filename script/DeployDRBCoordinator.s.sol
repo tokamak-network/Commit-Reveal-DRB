@@ -20,6 +20,7 @@ contract DeployDRBCoordinator is Script {
             ,
 
         ) = networkHelperConfig.activeNetworkConfig();
+        console2.log("activationThreshold:", activationThreshold);
         drbCoordinator = deployDRBCoordinator(
             activationThreshold,
             flatFee,

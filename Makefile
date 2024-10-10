@@ -48,7 +48,7 @@ anvil-titansepolia:; anvil -m 'test test test test test test test test test test
 
 #################### * scripts ####################
 
-NETWORK_ARGS := --rpc-url http://localhost:8545 --private-key $(DEFAULT_ANVIL_KEY) --broadcast --legacy
+NETWORK_ARGS := --rpc-url http://localhost:8545 --private-key $(DEFAULT_ANVIL_KEY) --broadcast --legacy --gas-limit 9999999999999999999
 
 ifeq ($(findstring --network thanossepolia,$(ARGS)), --network thanossepolia)
 	NETWORK_ARGS := --rpc-url $(THANOS_SEPOLIA_URL) --private-key $(PRIVATE_KEY) --broadcast --verify --verifier blockscout --verifier-url https://explorer.thanos-sepolia.tokamak.network/api --etherscan-api-key 11 -vv
@@ -56,8 +56,11 @@ endif
 ifeq ($(findstring --network sepolia,$(ARGS)), --network sepolia)
 	NETWORK_ARGS := --rpc-url $(SEPOLIA_RPC_URL) --private-key $(PRIVATE_KEY) --broadcast --verify --etherscan-api-key $(ETHERSCAN_API_KEY) -vv
 endif
-ifeq ($(findstring --network titansepolia,$(ARGS)), --network titansepolia)
-	NETWORK_ARGS := --rpc-url $(TITAN_SEPOLIA_URL) --private-key $(PRIVATE_KEY2) --broadcast --verify --verifier blockscout --verifier-url $(TITAN_SEPOLIA_EXPLORER) -vv --legacy
+# ifeq ($(findstring --network titansepolia,$(ARGS)), --network titansepolia)
+# 	NETWORK_ARGS := --rpc-url $(TITAN_SEPOLIA_URL) --private-key $(PRIVATE_KEY) --broadcast --verify --verifier blockscout --verifier-url $(TITAN_SEPOLIA_EXPLORER) -vv --legacy
+# endif
+ifeq ($(findstring --network titan,$(ARGS)), --network titan)
+	NETWORK_ARGS := --rpc-url $(TITAN_RPC_URL) --private-key $(PRIVATE_KEY) --broadcast --verify --verifier blockscout --verifier-url $(TITAN_EXPLORER) -vv --legacy
 endif
 
 
@@ -85,6 +88,9 @@ two-deposit-activate-real:
 request-random:
 	@forge script script/Interactions.s.sol:ConsumerRequestRandomNumber $(NETWORK_ARGS)
 
+request-titansepolia:
+	@forge script script/ConsumerInteractions.s.sol:Request $(NETWORK_ARGS)
+
 ADDRESS := $()
 request-random-with-address:
 	@forge script script/Interactions.s.sol:ConsumerRequestRandomNumber $(NETWORK_ARGS) --sig "run(address)" $(ADDRESS)
@@ -99,8 +105,14 @@ update-expiry:
 claim-prize:
 	@forge script script/ConsumerInteractions.s.sol:ClaimPrize $(NETWORK_ARGS)
 
+mint-claim:
+	@forge script script/ConsumerInteractions.s.sol:MintandClaim $(NETWORK_ARGS)
+
 commit:
 	@forge script script/Interactions.s.sol:Commit $(NETWORK_ARGS) --sig "run(uint256)" $(ROUND) -vv
+
+get-deposit:
+	@forge script script/Interactions.s.sol:GetDepositAmount $(NETWORK_ARGS)
 
 commit-with-address:
 	@forge script script/Interactions.s.sol:Commit $(NETWORK_ARGS) --sig "run(uint256,address)" $(ROUND) $(ADDRESS) -vv
@@ -108,10 +120,22 @@ commit-with-address:
 reveal:
 	@forge script script/Interactions.s.sol:Reveal $(NETWORK_ARGS) --sig "run(uint256)" $(ROUND)
 
+SENDER := $()
+SECRET := $()
+
+reveal-address-sender:
+	@forge script script/Interactions.s.sol:Reveal $(NETWORK_ARGS) --sig "run(uint256,address,address,bytes32)" $(ROUND) $(ADDRESS) $(SENDER) $(SECRET)
+
 reveal-with-address:
 	@forge script script/Interactions.s.sol:Reveal $(NETWORK_ARGS) --sig "run(uint256,address)" $(ROUND) $(ADDRESS)
 
+get-winner-info:
+	@forge script script/ConsumerInteractions.s.sol:GetWinnerInfo $(NETWORK_ARGS)
+
 SECOND := $()
+
+blacklist:
+	@forge script script/ConsumerInteractions.s.sol:BlackList $(NETWORK_ARGS)
 
 
 
@@ -122,16 +146,16 @@ refund:
 	@forge script script/Interactions.s.sol:Refund $(NETWORK_ARGS) --sig "run(uint256)" $(ROUND)
 
 verify-drb:
-	@CONSTRUCTOR_ARGS=$$(cast abi-encode "constructor(uint256,uint256,uint256)" 3475972 10000000000000 5000000000000) \
-	forge verify-contract --constructor-args CONSTRUCTOR_ARGS --verifier blockscout --verifier-url $(TITAN_SEPOLIA_EXPLORER) --rpc-url $(TITAN_SEPOLIA_URL) $(ADDRESS) DRBCoordinator
+	@CONSTRUCTOR_ARGS=$$(cast abi-encode "constructor(uint256,uint256,uint256)" 826392287559752 250000000000000 150000000000000) \
+	forge verify-contract --constructor-args CONSTRUCTOR_ARGS --verifier blockscout --verifier-url $(TITAN_EXPLORER) --rpc-url $(TITAN_RPC_URL) $(ADDRESS) DRBCoordinator
 
 verify-raretitle:
-	@CONSTRUCTOR_ARGS=$$(cast abi-encode "constructor(address,uint256,address,uint256)" 0x66A4855a3020B94Ec910BfdC114f77d2596bA433 86400 0x7c6b91D9Be155A6Db01f749217d76fF02A7227F2 100000000000000000000) \
-	forge verify-contract --constructor-args CONSTRUCTOR_ARGS --verifier blockscout --verifier-url $(TITAN_SEPOLIA_EXPLORER) --rpc-url $(TITAN_SEPOLIA_URL) $(ADDRESS) RareTitle
+	@CONSTRUCTOR_ARGS=$$(cast abi-encode "constructor(address,uint256,address,uint256)" 0x78ACCa4E8269E6082D1C78B7386366feb7865fb4 86400 0x7c6b91D9Be155A6Db01f749217d76fF02A7227F2 100000000000000000000) \
+	forge verify-contract --constructor-args CONSTRUCTOR_ARGS --verifier blockscout --verifier-url $(TITAN_EXPLORER) --rpc-url $(TITAN_RPC_URL) $(ADDRESS) RareTitle
 
 verify-consumer-example:
-	@CONSTRUCTOR_ARGS=$$(cast abi-encode "constructor(address)" 0x66A4855a3020B94Ec910BfdC114f77d2596bA433) \
-	forge verify-contract --constructor-args CONSTRUCTOR_ARGS --verifier blockscout --verifier-url $(TITAN_SEPOLIA_EXPLORER) --rpc-url $(TITAN_SEPOLIA_URL) $(ADDRESS) ConsumerExample
+	@CONSTRUCTOR_ARGS=$$(cast abi-encode "constructor(address)" 0x7b470a4579ecA75aF7895EFC0a5AAB540DfB38Cd) \
+	forge verify-contract --constructor-args CONSTRUCTOR_ARGS --verifier blockscout --verifier-url $(TITAN_EXPLORER) --rpc-url $(TITAN_RPC_URL) $(ADDRESS) ConsumerExample
 
 
 test: test-drbCoordinator test-drbCoordinatorGas

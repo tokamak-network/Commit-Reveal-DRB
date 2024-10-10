@@ -4,7 +4,9 @@ import {Script, console2} from "forge-std/Script.sol";
 import {DevOpsTools} from "lib/foundry-devops/src/DevOpsTools.sol";
 import {DRBCoordinator} from "../src/DRBCoordinator.sol";
 import {ConsumerExample} from "../src/ConsumerExample.sol";
+import {RareTitle} from "../src/DRBRareTitle.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
+import {stdStorage, StdStorage} from "forge-std/Test.sol";
 
 contract Utils is Script {
     address[10] public anvilDefaultAddresses = [
@@ -116,7 +118,7 @@ contract TwoDepositAndActivateRealNetwork is Utils {
     function run() public {
         (DRBCoordinator drbCoordinator, ) = getContracts();
         uint256 minDeposit = drbCoordinator.getMinDeposit();
-        string memory key = "PRIVATE_KEY";
+        //string memory key = "PRIVATE_KEY";
         string memory key2 = "PRIVATE_KEY2";
         // vm.startBroadcast(uint256(bytes32(fromHex(vm.envString(key)))));
         // drbCoordinator.depositAndActivate{value: minDeposit * 6}();
@@ -193,6 +195,8 @@ contract Commit is Utils {
 }
 
 contract Reveal is Utils {
+    using stdStorage for StdStorage;
+
     function run(uint256 round) public {
         (DRBCoordinator drbCoordinator, ) = getContracts();
         uint256 revealLength = drbCoordinator.getRevealsLength(round);
@@ -256,6 +260,73 @@ contract Reveal is Utils {
             );
         }
     }
+
+    function run(
+        uint256 round,
+        address drbCoordinatorAddress,
+        address msgSender,
+        bytes32 reveal
+    ) public {
+        DRBCoordinator drbCoordinator = DRBCoordinator(drbCoordinatorAddress);
+        RareTitle rareTitle = RareTitle(
+            payable(address(0xCB01f0f7fC79Ef34e480a6a008C2895bd5a6AF7F))
+        );
+        DRBCoordinator.RoundInfo memory roundInfo = drbCoordinator.getRoundInfo(
+            round
+        );
+        uint256 commitEndTime = roundInfo.commitEndTime;
+
+        console2.log("commit end time:", commitEndTime);
+        console2.log("current time:", block.timestamp);
+        //console2.logBytes(address(rareTitle).code);
+        console2.log("-----------------");
+        // console2.log(
+        //     stdstore
+        //         .target(address(drbCoordinator))
+        //         .sig("s_requestInfo(uint256)")
+        //         .with_key(uint256(104))
+        //         .depth(3)
+        //         .read_uint()
+        // );
+        vm.store(
+            address(drbCoordinator),
+            bytes32(uint256(keccak256(abi.encode(104, 4))) + 3),
+            bytes32(uint256(160000))
+        );
+        // stdstore
+        //     .target(address(drbCoordinator))
+        //     .sig("s_requestInfo(uint256)")
+        //     .with_key(uint256(104))
+        //     .depth(3)
+        //     .checked_write(170000);
+        vm.startBroadcast(msgSender);
+        drbCoordinator.reveal(round, reveal);
+        vm.stopBroadcast();
+        uint256 commitLength = drbCoordinator.getCommitsLength(round);
+        uint256 revealLengthAfter = drbCoordinator.getRevealsLength(round);
+        console2.log("commit length at round:", round, ": ", commitLength);
+        console2.log("reveal length at round:", round, ": ", revealLengthAfter);
+        if (commitLength == revealLengthAfter) {
+            console2.log("All operators have revealed");
+            roundInfo = drbCoordinator.getRoundInfo(round);
+            console2.log(
+                "round:",
+                round,
+                " random number:",
+                roundInfo.randomNumber
+            );
+        }
+
+        vm.startBroadcast(msgSender);
+        (
+            address player,
+            uint256 randomNumber,
+            RareTitle.RequestStatus status
+        ) = rareTitle.s_requests(104);
+        vm.stopBroadcast();
+        console2.log("player:", player, "random number:", randomNumber);
+        console2.log("status:", uint256(status));
+    }
 }
 
 contract IncreaseTime is Utils {
@@ -277,6 +348,37 @@ contract IncreaseTime is Utils {
         vm.ffi(inputs2);
         //vm.roll(block.number + 1);
         console2.log("Increased time by:", secondsToIncrease);
+    }
+}
+
+contract GetDepositAmount is Utils {
+    function run() public view {
+        DRBCoordinator drbCoordinator = DRBCoordinator(
+            address(0x78ACCa4E8269E6082D1C78B7386366feb7865fb4)
+        );
+        address[3] memory operators = [
+            address(0xE0bB22e4CEFd5947747D8beF242038A7D4466670),
+            address(0x026510c75290c6ef53027494F1b784D8982F5441),
+            address(0x90813D87f16df9dF6275420E73ED585e0d906988)
+        ];
+        for (uint256 i = 0; i < operators.length; i++) {
+            uint256 depositAmount = drbCoordinator.getDepositAmount(
+                operators[i]
+            );
+            console2.log(
+                "Deposit amount for operator:",
+                operators[i],
+                depositAmount
+            );
+        }
+        // ETH balance
+        for (uint256 i = 0; i < operators.length; i++) {
+            console2.log(
+                "ETH balance for operator:",
+                operators[i],
+                address(operators[i]).balance
+            );
+        }
     }
 }
 

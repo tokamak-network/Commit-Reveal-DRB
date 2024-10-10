@@ -77,7 +77,7 @@ contract NetworkHelperConfig is Script {
                 compensateAmount: compensateAmount,
                 flatFee: flatFee,
                 l1GasCostMode: 2,
-                gameExpiry: block.timestamp + 60 * 60 * 24,
+                gameExpiry: 60 * 60 * 24,
                 tonToken: IERC20(0x7c6b91D9Be155A6Db01f749217d76fF02A7227F2),
                 reward: 100 ether
             });
@@ -99,7 +99,7 @@ contract NetworkHelperConfig is Script {
                 compensateAmount: compensateAmount,
                 flatFee: flatFee,
                 l1GasCostMode: 3,
-                gameExpiry: block.timestamp + 3600,
+                gameExpiry: 3600,
                 tonToken: IERC20(address(0)),
                 reward: 1000 ether
             });
@@ -137,7 +137,7 @@ contract NetworkHelperConfig is Script {
                 compensateAmount: compensateAmount,
                 flatFee: flatFee,
                 l1GasCostMode: 1,
-                gameExpiry: block.timestamp + 60 * 60 * 24,
+                gameExpiry: 60 * 60 * 24,
                 tonToken: IERC20(address(0)),
                 reward: 1000 ether
             });
@@ -145,8 +145,8 @@ contract NetworkHelperConfig is Script {
 
     function getTitanConfig() public view returns (NetworkConfig memory) {
         uint256 fixedL2GasPrice = 1003000; // 1000000 + buffer
-        uint256 flatFee = 0.001 ether;
-        uint256 compensateAmount = 0.0005 ether;
+        uint256 flatFee = 0.00025 ether;
+        uint256 compensateAmount = 0.00015 ether;
 
         /// *** get L1 Gas
         uint256 l1GasCost = _calculateLegacyL1DataFee(
@@ -169,7 +169,7 @@ contract NetworkHelperConfig is Script {
                 compensateAmount: compensateAmount,
                 flatFee: flatFee,
                 l1GasCostMode: 2,
-                gameExpiry: block.timestamp + 60 * 60 * 24,
+                gameExpiry: 60 * 60 * 24,
                 tonToken: IERC20(0x7c6b91D9Be155A6Db01f749217d76fF02A7227F2),
                 reward: 1000 ether
             });
