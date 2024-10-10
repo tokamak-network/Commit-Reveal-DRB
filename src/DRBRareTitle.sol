@@ -48,7 +48,6 @@ contract RareTitle is DRBConsumerBase, ReentrancyGuard, Ownable {
 
     // Storage Variables
     IERC20 public tonToken;
-    bool public rewardClaimed;
     uint256 public reward; // Total TON reward set by the owner
 
     uint256 private gameExpiry; // Time at which the game expires
@@ -64,7 +63,6 @@ contract RareTitle is DRBConsumerBase, ReentrancyGuard, Ownable {
     event RequestFulfilled(uint256 requestId, uint256 randomWord);
     event GameExpiryUpdated(uint256 gameExpiry);
     event FundsWithdrawn(uint256 amount);
-    event RewardClaimed(address[] winners, uint256 reward);
 
     // Errors
     error InvalidGameExpiry(uint256 newGameExpiry);
@@ -77,6 +75,7 @@ contract RareTitle is DRBConsumerBase, ReentrancyGuard, Ownable {
     error RewardAlreadyClaimed();
     error InvalidAddress();
     error InvalidReward();
+    error NoWinners();
 
     // Modifiers
 
@@ -110,7 +109,7 @@ contract RareTitle is DRBConsumerBase, ReentrancyGuard, Ownable {
         uint256 _reward
     ) DRBConsumerBase(_rngCoordinator) Ownable(msg.sender) {
         require(_gameExpiry != 0, InvalidGameExpiry(_gameExpiry));
-        gameExpiry = _gameExpiry;
+        gameExpiry = _gameExpiry + block.timestamp;
 
         require(address(_ton) != address(0), InvalidAddress());
         tonToken = _ton;
@@ -155,8 +154,9 @@ contract RareTitle is DRBConsumerBase, ReentrancyGuard, Ownable {
             uint8[] memory requestStatus,
             int24 totalPoints,
             uint8 totalTurns,
-            int24 _winnerPoint,
-            uint256 winnerLength,
+            int24[] memory _winnerPoint,
+            uint256[] memory winnerLength,
+            uint256[] memory prizeAmounts,
             uint256 _gameExpiry
         )
     {
@@ -171,7 +171,7 @@ contract RareTitle is DRBConsumerBase, ReentrancyGuard, Ownable {
         }
         totalPoints = playerInfo[msg.sender].totalPoints;
         totalTurns = playerInfo[msg.sender].totalTurns;
-        (_winnerPoint, winnerLength) = _getWinnerScoreAndCount();
+        (_winnerPoint, winnerLength, prizeAmounts) = _getWinnerScoreAndCount();
         _gameExpiry = gameExpiry;
     }
 
@@ -195,32 +195,6 @@ contract RareTitle is DRBConsumerBase, ReentrancyGuard, Ownable {
         request.status = RequestStatus.REQUESTED;
         request.player = msg.sender;
         user.requestIds.push(requestId);
-    }
-
-    /**
-     * @notice Allows the winner to claim their prize after the game has expired.
-     * @dev This function checks if the caller is the winner, ensures the reward has not already
-     *      been claimed, and verifies the contract has enough balance to transfer the reward.
-     *      Emits a {RewardClaimed} event upon successful transfer of the reward.
-     */
-    function claimPrize() external gameExpired onlyOwner {
-        if (rewardClaimed) {
-            revert RewardAlreadyClaimed();
-        }
-
-        uint256 balance = tonToken.balanceOf(address(this));
-
-        if (balance < reward) {
-            revert InsufficientBalance(balance, reward);
-        }
-        (int24 winnerScore, uint256 winnerLength) = _getWinnerScoreAndCount();
-        uint256 distribution = reward / winnerLength;
-        address[] memory winners = scoreToPlayers[winnerScore];
-        for (uint256 i = 0; i < winnerLength; i++) {
-            tonToken.transfer(winners[i], distribution);
-        }
-        rewardClaimed = true;
-        emit RewardClaimed(winners, reward);
     }
 
     /**
@@ -358,25 +332,126 @@ contract RareTitle is DRBConsumerBase, ReentrancyGuard, Ownable {
         i_drbCoordinator.getRefund(requestId);
     }
 
+    function claimPrize() external gameExpired onlyOwner {
+        uint256 balance = tonToken.balanceOf(address(this));
+
+        if (balance < reward) {
+            revert InsufficientBalance(balance, reward);
+        }
+
+        (
+            int24[] memory winnerScores,
+            uint256[] memory winnerLengths,
+            uint256[] memory prizeAmounts
+        ) = _getWinnerScoreAndCount();
+        if (winnerScores.length == 0) {
+            revert NoWinners();
+        } else if (winnerScores.length == 1) {
+            address[] memory winners = scoreToPlayers[winnerScores[0]];
+            for (uint256 i = 0; i < winnerLengths[0]; i++) {
+                tonToken.transfer(winners[i], prizeAmounts[0]);
+            }
+        } else {
+            address[] memory winners = scoreToPlayers[winnerScores[0]];
+            tonToken.transfer(winners[0], prizeAmounts[0]);
+            uint256 i = 1;
+            while (i < 5) {
+                if (winnerLengths[i] == 0) {
+                    break;
+                }
+                for (uint256 j = 0; j < winnerLengths[i]; j++) {
+                    tonToken.transfer(
+                        scoreToPlayers[winnerScores[i]][j],
+                        prizeAmounts[i]
+                    );
+                }
+                unchecked {
+                    ++i;
+                }
+            }
+        }
+    }
+
     function getWinnersInfo()
         external
         view
         returns (
-            int24 winnerPoint,
-            uint256 winnerLength,
-            address[] memory winners
+            int24[] memory winnerPoint,
+            uint256[] memory winnerLength,
+            uint256[] memory prizeAmounts,
+            address[][] memory winners
         )
     {
-        (winnerPoint, winnerLength) = _getWinnerScoreAndCount();
-        winners = scoreToPlayers[winnerPoint];
+        (winnerPoint, winnerLength, prizeAmounts) = _getWinnerScoreAndCount();
+        if (winnerPoint.length == 0) {
+            return (winnerPoint, winnerLength, prizeAmounts, winners);
+        } else if (winnerPoint.length == 1) {
+            winners = new address[][](1);
+            winners[0] = scoreToPlayers[winnerPoint[0]];
+        } else {
+            winners = new address[][](5);
+            for (uint256 i = 0; i < 5; i++) {
+                if (winnerLength[i] == 0) {
+                    break;
+                }
+                winners[i] = scoreToPlayers[winnerPoint[i]];
+            }
+        }
     }
 
-    function _getWinnerScoreAndCount() internal view returns (int24, uint256) {
+    function _getWinnerScoreAndCount()
+        internal
+        view
+        returns (
+            int24[] memory winners,
+            uint256[] memory scoreCounts,
+            uint256[] memory prizeAmounts
+        )
+    {
         int24 currentTick = MAX_TICK_PLUS_ONE;
         bool found;
         (currentTick, found) = _findLeftInitializedTick(currentTick);
-        if (!found) return (0, 0);
-        return (currentTick, scoreCount[currentTick]);
+        if (!found) return (winners, scoreCounts, prizeAmounts); // no winners
+        uint256 count = scoreCount[currentTick];
+        if (count > 1) {
+            // only 1st exists
+            winners = new int24[](1);
+            scoreCounts = new uint256[](1);
+            prizeAmounts = new uint256[](1);
+            winners[0] = currentTick;
+            scoreCounts[0] = count;
+            prizeAmounts[0] = reward / count;
+            return (winners, scoreCounts, prizeAmounts);
+        }
+        uint256 leftReward = reward / 2;
+        winners = new int24[](5);
+        scoreCounts = new uint256[](5);
+        prizeAmounts = new uint256[](5);
+        prizeAmounts[0] = leftReward;
+        winners[0] = currentTick;
+        scoreCounts[0] = 1;
+        uint256 totalCount = 1;
+        uint256 i = 1;
+        do {
+            (currentTick, found) = _findLeftInitializedTick(currentTick - 1);
+            if (!found) break;
+            winners[i] = currentTick;
+            scoreCounts[i] = scoreCount[currentTick];
+            totalCount += scoreCounts[i];
+            if (totalCount <= 5) {
+                leftReward -= 125 ether * scoreCounts[i];
+                prizeAmounts[i] = 125 ether;
+            } else {
+                prizeAmounts[i] = leftReward / scoreCounts[i];
+                break;
+            }
+            if (totalCount >= 5) {
+                break;
+            }
+            unchecked {
+                ++i;
+            }
+        } while (i < 5);
     }
 
     function _findLeftInitializedTick(
