@@ -11,4 +11,10 @@ contract OptimismL1FeesExternal is OptimismL1Fees {
     ) external view returns (uint256) {
         return _getL1CostWeiForCalldataSize(calldataSize);
     }
+
+    function getL1CostLegacy(
+        uint256 calldataSize
+    ) external view returns (uint256) {
+        return _calculateLegacyL1DataFee(calldataSize);
+    }
 }

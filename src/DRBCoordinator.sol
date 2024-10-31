@@ -2,18 +2,21 @@
 pragma solidity ^0.8.26;
 
 import {DRBCoordinatorStorage} from "./DRBCoordinatorStorage.sol";
-import {ReentrancyGuard} from "./utils/ReentrancyGuard.sol";
+// import {ReentrancyGuard} from "./utils/ReentrancyGuard.sol";
+import {ReentrancyGuardTransient} from "openzeppelin-contracts/contracts/utils/ReentrancyGuardTransient.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {OptimismL1Fees} from "./OptimismL1Fees.sol";
 import {DRBConsumerBase} from "./DRBConsumerBase.sol";
 import {IDRBCoordinator} from "./interfaces/IDRBCoordinator.sol";
+
+import {console2} from "forge-std/Test.sol";
 
 /// @title DRBCoordinator, distributed random beacon coordinator, using commit-reveal scheme
 /// @author Justin G
 
 contract DRBCoordinator is
     Ownable,
-    ReentrancyGuard,
+    ReentrancyGuardTransient,
     IDRBCoordinator,
     DRBCoordinatorStorage,
     OptimismL1Fees
