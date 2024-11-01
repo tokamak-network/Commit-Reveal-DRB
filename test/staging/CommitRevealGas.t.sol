@@ -697,7 +697,9 @@ contract CommitRevealGasTest is BaseTest {
             for (uint256 j; j < 79; j++) {
                 console2.log("N:", ns[j]);
                 uint256 totalGasCostOriginal = optimismL1FeesExternal
-                    .getL1CostWeiForCalldataSize(68) * ns[j];
+                    .getL1CostWeiForCalldataSize(68) *
+                    2 *
+                    ns[j];
                 uint256 totalGasCostHybrid = optimismL1FeesExternal
                     .getL1CostWeiForCalldataSize(68) +
                     optimismL1FeesExternal.getL1CostWeiForCalldataSize(
@@ -716,6 +718,61 @@ contract CommitRevealGasTest is BaseTest {
             console2.log("N:", ns[j]);
             uint256 totalGasCostOriginal = optimismL1FeesExternal
                 .getL1CostLegacy(68) * ns[j];
+            uint256 totalGasCostHybrid = optimismL1FeesExternal.getL1CostLegacy(
+                68
+            ) + optimismL1FeesExternal.getL1CostLegacy(356 + (160 * ns[j]));
+            console2.log("totalGasCostOriginal", totalGasCostOriginal);
+            console2.log("totalGasCostHybrid", totalGasCostHybrid);
+        }
+    }
+
+    function testGas_2Original_Hybrid() public {
+        string[] memory keys = new string[](3);
+        keys[0] = vm.envString("OP_MAINNET_RPC_URL");
+        keys[1] = vm.envString("THANOS_SEPOLIA_URL");
+        keys[2] = vm.envString("TITAN_RPC_URL");
+        string[2] memory networks = [
+            "OP_MAINNET_RPC_URL",
+            "THANOS_SEPOLIA_URL"
+        ];
+
+        uint256[] memory ns = new uint256[](59);
+        for (uint256 i = 2; i < 61; i++) {
+            ns[i - 2] = i;
+        }
+        for (uint256 i; i < 2; i++) {
+            uint256 fork = vm.createFork(keys[i]);
+            vm.selectFork(fork);
+            optimismL1FeesExternal = new OptimismL1FeesExternal();
+            console2.log(networks[i], "fork");
+            for (uint256 j; j < 59; j++) {
+                console2.log("N:", ns[j]);
+                uint256 totalGasCostOriginal = optimismL1FeesExternal
+                    .getL1CostWeiForCalldataSize(68) *
+                    2 *
+                    ns[j] +
+                    optimismL1FeesExternal.getL1CostWeiForCalldataSize(100);
+                uint256 totalGasCostHybrid = optimismL1FeesExternal
+                    .getL1CostWeiForCalldataSize(68) +
+                    optimismL1FeesExternal.getL1CostWeiForCalldataSize(
+                        356 + (160 * ns[j])
+                    );
+                console2.log("totalGasCostOriginal", totalGasCostOriginal);
+                console2.log("totalGasCostHybrid", totalGasCostHybrid);
+            }
+        }
+
+        uint256 fork = vm.createFork(keys[2]);
+        vm.selectFork(fork);
+        optimismL1FeesExternal = new OptimismL1FeesExternal();
+        console2.log("TITAN", "fork");
+        for (uint256 j; j < 9; j++) {
+            console2.log("N:", ns[j]);
+            uint256 totalGasCostOriginal = optimismL1FeesExternal
+                .getL1CostLegacy(68) *
+                2 *
+                ns[j] +
+                optimismL1FeesExternal.getL1CostLegacy(100);
             uint256 totalGasCostHybrid = optimismL1FeesExternal.getL1CostLegacy(
                 68
             ) + optimismL1FeesExternal.getL1CostLegacy(356 + (160 * ns[j]));
