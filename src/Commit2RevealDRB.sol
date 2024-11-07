@@ -1,0 +1,427 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.28;
+
+import {ReentrancyGuardTransient} from "openzeppelin-contracts/contracts/utils/ReentrancyGuardTransient.sol";
+import {OptimismL1Fees} from "./OptimismL1Fees.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {DRBConsumerBase} from "./DRBConsumerBase.sol";
+import {Commit2RevealDRBStorage} from "./Commit2RevealDRBStorage.sol";
+import {Arrays} from "@openzeppelin/contracts/utils/Arrays.sol";
+
+contract Commit2RevealDRB is
+    ReentrancyGuardTransient,
+    OptimismL1Fees,
+    Commit2RevealDRBStorage
+{
+    constructor(
+        uint256 activationThreshold,
+        uint256 flatFee
+    ) Ownable(msg.sender) {
+        s_activationThreshold = activationThreshold;
+        s_flatFee = flatFee;
+        s_activatedOperators.push(address(0));
+    }
+
+    function estimateRequestPrice(
+        uint256 callbackGasLimit,
+        uint256 gasPrice
+    ) external view returns (uint256) {
+        return _calculateRequestPrice(callbackGasLimit, gasPrice);
+    }
+
+    function requestRandomNumber(
+        uint32 callbackGasLimit
+    ) external payable nonReentrant returns (uint256 round) {
+        require(
+            callbackGasLimit <= MAX_CALLBACK_GAS_LIMIT,
+            ExceedCallbackGasLimit()
+        );
+        require(s_activatedOperators.length > 2, NotEnoughActivatedOperators());
+        require(
+            msg.value >= _calculateRequestPrice(callbackGasLimit, tx.gasprice),
+            InsufficientAmount()
+        );
+        unchecked {
+            round = s_nextRound++;
+        }
+        s_requestInfo[round] = RequestInfo({
+            consumer: msg.sender,
+            requestedTime: block.timestamp,
+            cost: msg.value,
+            callbackGasLimit: callbackGasLimit
+        });
+        address[] memory activatedOperators;
+        s_activatedOperatorsAtRound[
+            round
+        ] = activatedOperators = s_activatedOperators;
+        uint256 activatedOperatorsLength = activatedOperators.length;
+        uint256 i = 1;
+        mapping(address => uint256)
+            storage activatedOperatorOrderAtRound = s_activatedOperatorOrderAtRound[
+                round
+            ];
+        uint256 activationThreshold = s_activationThreshold;
+        do {
+            address operator = activatedOperators[i];
+            activatedOperatorOrderAtRound[operator] = i;
+            uint256 activatedOperatorIndex = s_activatedOperatorOrder[operator];
+            if ((s_depositAmount[operator] -= msg.value) < activationThreshold)
+                _deactivate(activatedOperatorIndex, operator);
+            unchecked {
+                ++i;
+            }
+        } while (i < activatedOperatorsLength);
+        emit RandomNumberRequested(round, activatedOperators);
+    }
+
+    function _calculateRequestPrice(
+        uint256 callbackGasLimit,
+        uint256 gasPrice
+    ) private view returns (uint256) {
+        return
+            (gasPrice *
+                (callbackGasLimit + MERKLEROOTSUB_RANDOMNUMGENERATE_GASUSED)) +
+            s_flatFee +
+            _getL1CostWeiForcalldataSize2(
+                MERKLEROOTSUB_CALLDATA_BYTES_SIZE,
+                RANDOMNUMGENERATE_CALLDATA_BYTES_SIZE
+            );
+    }
+
+    function _getL1CostWeiForcalldataSize2(
+        uint256 calldataSizeBytes1,
+        uint256 calldataSizeBytes2
+    ) private view returns (uint256) {
+        uint8 l1FeeCalculationMode = s_l1FeeCalculationMode;
+        if (l1FeeCalculationMode == L1_GAS_FEES_ECOTONE_MODE) {
+            // estimate based on unsigned fully RLP-encoded transaction size so we have to account for paddding bytes as well
+            return
+                _calculateOptimismL1DataFee(
+                    calldataSizeBytes1 + L1_UNSIGNED_RLP_ENC_TX_DATA_BYTES_SIZE
+                ) +
+                _calculateOptimismL1DataFee(
+                    calldataSizeBytes2 + L1_UNSIGNED_RLP_ENC_TX_DATA_BYTES_SIZE
+                );
+        } else if (l1FeeCalculationMode == L1_GAS_FEES_UPPER_BOUND_MODE) {
+            // getL1FeeUpperBound expects unsigned fully RLP-encoded transaction size so we have to account for paddding bytes as well
+            return
+                OVM_GASPRICEORACLE.getL1FeeUpperBound(
+                    calldataSizeBytes1 + L1_UNSIGNED_RLP_ENC_TX_DATA_BYTES_SIZE
+                ) +
+                OVM_GASPRICEORACLE.getL1FeeUpperBound(
+                    calldataSizeBytes2 + L1_UNSIGNED_RLP_ENC_TX_DATA_BYTES_SIZE
+                );
+        } else if (l1FeeCalculationMode == L1_GAS_FEES_LEGACY_MODE)
+            return
+                _calculateLegacyL1DataFee(calldataSizeBytes1) +
+                _calculateLegacyL1DataFee(calldataSizeBytes2);
+        else return 0;
+    }
+
+    // **** Operators ****
+    // ** Commit Reveal
+    function submitMerkleRoot(
+        uint256 round,
+        bytes32 merkleRoot
+    ) external nonReentrant {
+        require(
+            s_activatedOperatorOrderAtRound[round][msg.sender] > 0,
+            NotActivatedOperatorForThisRound()
+        );
+        s_roundInfo[round].merkleRoot = merkleRoot;
+    }
+
+    function generateRandomNumber1(
+        uint256 round,
+        bytes32[] calldata secrets,
+        uint256[] calldata revealOrders
+    ) external nonReentrant {
+        mapping(address => uint256)
+            storage activatedOperatorOrderAtRound = s_activatedOperatorOrderAtRound[
+                round
+            ];
+        require(
+            activatedOperatorOrderAtRound[msg.sender] > 0,
+            NotActivatedOperatorForThisRound()
+        );
+        uint256 secretsLength = secrets.length;
+
+        bytes32[] memory cos = new bytes32[](secretsLength);
+        uint256[] memory cvs = new uint256[](secretsLength);
+
+        for (uint256 i; i < secretsLength; i = unchecked_inc(i)) {
+            cos[i] = keccak256(abi.encode(secrets[i]));
+            cvs[i] = uint256(keccak256(abi.encode(cos[i])));
+        }
+        uint256 rv = uint256(keccak256(abi.encode(cos)));
+        // ** reveal order verification
+        for (uint256 i = 1; i < secretsLength; i = unchecked_inc(i))
+            require(
+                diff(rv, cvs[revealOrders[unchecked_dec(i)]]) <
+                    diff(rv, cvs[revealOrders[i]]),
+                RevealNotInAscendingOrder()
+            );
+        bytes32[] memory leaves;
+        assembly ("memory-safe") {
+            leaves := cvs
+        }
+
+        RoundInfo storage roundInfo = s_roundInfo[round];
+        // ** verify merkle root
+        require(
+            createMerkleRoot(leaves) == roundInfo.merkleRoot,
+            MerkleVerificationFailed()
+        );
+
+        // ** create random number
+        bytes memory secretsInRevealOrder = abi.encode(
+            secrets[revealOrders[0]],
+            secrets[revealOrders[1]]
+        );
+        for (uint256 i = 2; i < secretsLength; i = unchecked_inc(i)) {
+            secretsInRevealOrder = abi.encode(
+                secretsInRevealOrder,
+                secrets[revealOrders[i]]
+            );
+        }
+        uint256 randomNumber;
+        roundInfo.randomNumber = randomNumber = uint256(
+            keccak256(secretsInRevealOrder)
+        );
+        RequestInfo storage requestInfo = s_requestInfo[round];
+        bool success = _call(
+            requestInfo.consumer,
+            abi.encodeWithSelector(
+                DRBConsumerBase.rawFulfillRandomWords.selector,
+                round,
+                randomNumber
+            ),
+            requestInfo.callbackGasLimit
+        );
+        roundInfo.fulfillSucceeded = success;
+        address[]
+            storage activatedOperatorsAtRound = s_activatedOperatorsAtRound[
+                round
+            ];
+        uint256 cost = requestInfo.cost;
+        uint256 activatedOperatorsLength = activatedOperatorsAtRound.length;
+        uint256 costWithReward = cost + (cost / (activatedOperatorsLength - 1));
+        uint256 activationThreshold = s_activationThreshold;
+
+        for (
+            uint256 i = 1;
+            i < activatedOperatorsLength;
+            i = unchecked_inc(i)
+        ) {
+            address operator = activatedOperatorsAtRound[i];
+            _checkAndActivateIfNotForceDeactivated(
+                s_activatedOperatorOrder[operator],
+                s_depositAmount[operator] += costWithReward,
+                activationThreshold,
+                operator
+            );
+        }
+        emit RandomNumberGenerated(round, randomNumber);
+    }
+
+    function generateRandomNumber2(
+        uint256 round,
+        bytes32[] calldata secrets
+    ) external nonReentrant {
+        mapping(address => uint256)
+            storage activatedOperatorOrderAtRound = s_activatedOperatorOrderAtRound[
+                round
+            ];
+        require(
+            activatedOperatorOrderAtRound[msg.sender] > 0,
+            NotActivatedOperatorForThisRound()
+        );
+        uint256 secretsLength = secrets.length;
+
+        bytes32[] memory cos = new bytes32[](secretsLength);
+        uint256[] memory cvs = new uint256[](secretsLength);
+
+        for (uint256 i; i < secretsLength; i = unchecked_inc(i)) {
+            cos[i] = keccak256(abi.encode(secrets[i]));
+            cvs[i] = uint256(keccak256(abi.encode(cos[i])));
+        }
+        uint256 rv = uint256(keccak256(abi.encode(cos)));
+        uint256[] memory diffs = new uint256[](secretsLength);
+        for (uint256 i = 1; i < secretsLength; i = unchecked_inc(i))
+            diffs[i] = diff(rv, cvs[i]);
+    }
+
+    function createMerkleRoot(
+        bytes32[] memory leaves
+    ) private pure returns (bytes32) {
+        uint256 leavesLen = leaves.length;
+        uint256 hashCount = leavesLen - 1;
+        bytes32[] memory hashes = new bytes32[](hashCount);
+        uint256 leafPos = 0;
+        uint256 hashPos = 0;
+        for (uint256 i = 0; i < hashCount; i = unchecked_inc(i)) {
+            bytes32 a = leafPos < leavesLen
+                ? leaves[leafPos++]
+                : hashes[hashPos++];
+            bytes32 b = leafPos < leavesLen
+                ? leaves[leafPos++]
+                : hashes[hashPos++];
+            hashes[i] = _efficientKeccak256(a, b);
+        }
+        return hashes[hashCount - 1];
+    }
+
+    function _checkAndActivateIfNotForceDeactivated(
+        uint256 activatedOperatorIndex,
+        uint256 updatedDepositAmount,
+        uint256 threshold,
+        address operator
+    ) private {
+        if (
+            activatedOperatorIndex == 0 &&
+            updatedDepositAmount >= threshold &&
+            !s_forceDeactivated[operator]
+        ) {
+            _activate(operator);
+        }
+    }
+
+    function _efficientKeccak256(
+        bytes32 a,
+        bytes32 b
+    ) private pure returns (bytes32 value) {
+        assembly ("memory-safe") {
+            mstore(0x00, a)
+            mstore(0x20, b)
+            value := keccak256(0x00, 0x40)
+        }
+    }
+
+    function unchecked_inc(uint256 i) private pure returns (uint256) {
+        unchecked {
+            return i + 1;
+        }
+    }
+
+    function unchecked_dec(uint256 i) private pure returns (uint256) {
+        unchecked {
+            return i - 1;
+        }
+    }
+
+    function diff(uint256 a, uint256 b) private pure returns (uint256) {
+        return a > b ? a - b : b - a;
+    }
+
+    /// ** deposit and withdraw
+    function deposit() external payable nonReentrant {
+        s_depositAmount[msg.sender] += msg.value;
+    }
+
+    function activate() external nonReentrant {
+        require(
+            s_depositAmount[msg.sender] >= s_activationThreshold,
+            LessThanActivationThreshold()
+        );
+        if (s_forceDeactivated[msg.sender])
+            s_forceDeactivated[msg.sender] = false;
+        _activate(msg.sender);
+    }
+
+    function depositAndActivate() external payable nonReentrant {
+        require(
+            (s_depositAmount[msg.sender] += msg.value) >= s_activationThreshold,
+            LessThanActivationThreshold()
+        );
+        _activate(msg.sender);
+    }
+
+    function deactivate() external nonReentrant {
+        uint256 activatedOperatorIndex = s_activatedOperatorOrder[msg.sender];
+        require(activatedOperatorIndex != 0, OperatorNotActivated());
+        require(
+            s_forceDeactivated[msg.sender] == false,
+            AlreadyForceDeactivated()
+        );
+        s_forceDeactivated[msg.sender] = true;
+        _deactivate(activatedOperatorIndex, msg.sender);
+    }
+
+    function withdraw(uint256 amount) external nonReentrant {
+        s_depositAmount[msg.sender] -= amount;
+        uint256 activatedOperatorIndex = s_activatedOperatorOrder[msg.sender];
+        if (
+            activatedOperatorIndex != 0 &&
+            s_depositAmount[msg.sender] < s_activationThreshold
+        ) _deactivate(activatedOperatorIndex, msg.sender);
+        payable(msg.sender).transfer(amount);
+    }
+
+    function _activate(address operator) private {
+        require(s_activatedOperatorOrder[operator] == 0, AlreadyActivated());
+        uint256 activatedOperatorLength = s_activatedOperators.length;
+        require(
+            activatedOperatorLength <= s_maxActivatedOperators,
+            ActivatedOperatorsLimitReached()
+        );
+        s_activatedOperatorOrder[operator] = activatedOperatorLength;
+        s_activatedOperators.push(operator);
+        emit Activated(operator);
+    }
+
+    function _deactivate(
+        uint256 activatedOperatorIndex,
+        address operator
+    ) private {
+        address lastOperator = s_activatedOperators[
+            s_activatedOperators.length - 1
+        ];
+        s_activatedOperators[activatedOperatorIndex] = lastOperator;
+        s_activatedOperators.pop();
+        s_activatedOperatorOrder[lastOperator] = activatedOperatorIndex;
+        delete s_activatedOperatorOrder[operator];
+        emit DeActivated(operator);
+    }
+
+    function _call(
+        address target,
+        bytes memory data,
+        uint256 callbackGasLimit
+    ) private returns (bool success) {
+        assembly {
+            let g := gas()
+            // Compute g -= GAS_FOR_CALL_EXACT_CHECK and check for underflow
+            // The gas actually passed to the callee is min(gasAmount, 63//64*gas available)
+            // We want to ensure that we revert if gasAmount > 63//64*gas available
+            // as we do not want to provide them with less, however that check itself costs
+            // gas. GAS_FOR_CALL_EXACT_CHECK ensures we have at least enough gas to be able to revert
+            // if gasAmount > 63//64*gas available.
+            if lt(g, GAS_FOR_CALL_EXACT_CHECK) {
+                revert(0, 0)
+            }
+            g := sub(g, GAS_FOR_CALL_EXACT_CHECK)
+            // if g - g//64 <= gas
+            // we subtract g//64 because of EIP-150
+            g := sub(g, div(g, 64))
+            if iszero(gt(sub(g, div(g, 64)), callbackGasLimit)) {
+                revert(0, 0)
+            }
+            // solidity calls check that a contract actually exists at the destination, so we do the same
+            if iszero(extcodesize(target)) {
+                revert(0, 0)
+            }
+            // call and return whether we succeeded. ignore return data
+            // call(gas, addr, value, argsOffset,argsLength,retOffset,retLength)
+            success := call(
+                callbackGasLimit,
+                target,
+                0,
+                add(data, 0x20),
+                mload(data),
+                0,
+                0
+            )
+        }
+        return success;
+    }
+}
