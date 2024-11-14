@@ -2,6 +2,13 @@
 pragma solidity ^0.8.28;
 
 library Sort {
+    function sort(
+        uint256[] memory array,
+        uint256[] memory index
+    ) internal pure {
+        _quickSort(_begin(array), _end(array), _begin(index), _end(index));
+    }
+
     function lt(uint256 a, uint256 b) private pure returns (bool) {
         return a < b;
     }
