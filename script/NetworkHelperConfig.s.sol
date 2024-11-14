@@ -48,21 +48,21 @@ contract NetworkHelperConfig is Script {
     /// @dev native token ETH, Legacy network
     function getTitanSepoliaConfig()
         public
-        view
+        pure
         returns (NetworkConfig memory)
     {
-        uint256 fixedL2GasPrice = 1;
+        //uint256 fixedL2GasPrice = 1;
         uint256 flatFee = 0.00001 ether;
         uint256 compensateAmount = 0.000005 ether;
 
         /// *** get L1 Gas
-        uint256 l1GasCost = _calculateLegacyL1DataFee(
-            ONECOMMIT_ONEREVEAL_CALLDATA_BYTES_SIZE
-        );
+        // uint256 l1GasCost = _calculateLegacyL1DataFee(
+        //     ONECOMMIT_ONEREVEAL_CALLDATA_BYTES_SIZE
+        // );
 
-        l1GasCost += _calculateLegacyL1DataFee(
-            REQUEST_REFUND_CALLDATA_BYTES_SIZE
-        );
+        // l1GasCost += _calculateLegacyL1DataFee(
+        //     REQUEST_REFUND_CALLDATA_BYTES_SIZE
+        // );
 
         // uint256 activationThreshold = fixedL2GasPrice *
         //     (ONECOMMIT_ONEREVEAL_GASUSED +

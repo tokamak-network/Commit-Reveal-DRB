@@ -56,12 +56,12 @@ endif
 ifeq ($(findstring --network sepolia,$(ARGS)), --network sepolia)
 	NETWORK_ARGS := --rpc-url $(SEPOLIA_RPC_URL) --private-key $(PRIVATE_KEY) --broadcast --verify --etherscan-api-key $(ETHERSCAN_API_KEY) -vv
 endif
-# ifeq ($(findstring --network titansepolia,$(ARGS)), --network titansepolia)
-# 	NETWORK_ARGS := --rpc-url $(TITAN_SEPOLIA_URL) --private-key $(PRIVATE_KEY) --broadcast --verify --verifier blockscout --verifier-url $(TITAN_SEPOLIA_EXPLORER) -vv --legacy
-# endif
-ifeq ($(findstring --network titan,$(ARGS)), --network titan)
-	NETWORK_ARGS := --rpc-url $(TITAN_RPC_URL) --private-key $(PRIVATE_KEY) --broadcast --verify --verifier blockscout --verifier-url $(TITAN_EXPLORER) -vv --legacy
+ifeq ($(findstring --network titansepolia,$(ARGS)), --network titansepolia)
+	NETWORK_ARGS := --rpc-url $(TITAN_SEPOLIA_URL) --private-key $(PRIVATE_KEY) --broadcast --verify --verifier blockscout --verifier-url $(TITAN_SEPOLIA_EXPLORER) -vv --legacy
 endif
+# ifeq ($(findstring --network titan,$(ARGS)), --network titan)
+# 	NETWORK_ARGS := --rpc-url $(TITAN_RPC_URL) --private-key $(PRIVATE_KEY) --broadcast --verify --verifier blockscout --verifier-url $(TITAN_EXPLORER) -vv --legacy
+# endif
 
 
 deploy: deploy-drb deploy-consumer-example deploy-raretitle
@@ -69,6 +69,9 @@ deploy: deploy-drb deploy-consumer-example deploy-raretitle
 
 deploy-drb:
 	@forge script script/DeployDRBCoordinator.s.sol:DeployDRBCoordinator $(NETWORK_ARGS)
+
+deploy-commit2reveal:
+	@forge script script/DeployCommit2Reveal.s.sol:DeployCommit2Reveal $(NETWORK_ARGS)
 
 deploy-consumer-example:
 	@forge script script/DeployConsumerExample.s.sol:DeployConsumerExample $(NETWORK_ARGS)
@@ -149,13 +152,17 @@ verify-drb:
 	@CONSTRUCTOR_ARGS=$$(cast abi-encode "constructor(uint256,uint256,uint256)" 826392287559752 250000000000000 150000000000000) \
 	forge verify-contract --constructor-args CONSTRUCTOR_ARGS --verifier blockscout --verifier-url $(TITAN_EXPLORER) --rpc-url $(TITAN_RPC_URL) $(ADDRESS) DRBCoordinator
 
+verify-commit2reveal:
+	@CONSTRUCTOR_ARGS=$$(cast abi-encode "constructor(uint256,uint256,uint256,string,string)" 1000000000000000 10000000000000 10 "Tokamak DRB" "1") \
+	forge verify-contract --constructor-args CONSTRUCTOR_ARGS --verifier blockscout --verifier-url $(TITAN_SEPOLIA_EXPLORER) --rpc-url $(TITAN_SEPOLIA_URL) $(ADDRESS) Commit2RevealDRB
+
 verify-raretitle:
 	@CONSTRUCTOR_ARGS=$$(cast abi-encode "constructor(address,uint256,address,uint256)" 0x78ACCa4E8269E6082D1C78B7386366feb7865fb4 86400 0x7c6b91D9Be155A6Db01f749217d76fF02A7227F2 100000000000000000000) \
 	forge verify-contract --constructor-args CONSTRUCTOR_ARGS --verifier blockscout --verifier-url $(TITAN_EXPLORER) --rpc-url $(TITAN_RPC_URL) $(ADDRESS) RareTitle
 
 verify-consumer-example:
 	@CONSTRUCTOR_ARGS=$$(cast abi-encode "constructor(address)" 0x7b470a4579ecA75aF7895EFC0a5AAB540DfB38Cd) \
-	forge verify-contract --constructor-args CONSTRUCTOR_ARGS --verifier blockscout --verifier-url $(TITAN_EXPLORER) --rpc-url $(TITAN_RPC_URL) $(ADDRESS) ConsumerExample
+	forge verify-contract --constructor-args CONSTRUCTOR_ARGS --verifier blockscout --verifier-url $(TITAN_SEPOLIA_EXPLORER) --rpc-url $(TITAN_SEPOLIA_URL) $(ADDRESS) ConsumerExample
 
 
 test: test-drbCoordinator test-drbCoordinatorGas
