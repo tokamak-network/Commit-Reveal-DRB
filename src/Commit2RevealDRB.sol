@@ -33,7 +33,21 @@ contract Commit2RevealDRB is
         uint256 callbackGasLimit,
         uint256 gasPrice
     ) external view returns (uint256) {
-        return _calculateRequestPrice(callbackGasLimit, gasPrice);
+        return
+            _calculateRequestPrice(
+                callbackGasLimit,
+                gasPrice,
+                s_activatedOperators.length
+            );
+    }
+
+    function estimateRequestPrice(
+        uint256 callbackGasLimit,
+        uint256 gasPrice,
+        uint256 numOfOperators
+    ) external view returns (uint256) {
+        return
+            _calculateRequestPrice(callbackGasLimit, gasPrice, numOfOperators);
     }
 
     function requestRandomNumber(
@@ -43,9 +57,15 @@ contract Commit2RevealDRB is
             callbackGasLimit <= MAX_CALLBACK_GAS_LIMIT,
             ExceedCallbackGasLimit()
         );
-        require(s_activatedOperators.length > 2, NotEnoughActivatedOperators());
+        uint256 activatedOperatorsLength = s_activatedOperators.length;
+        require(activatedOperatorsLength > 2, NotEnoughActivatedOperators());
         require(
-            msg.value >= _calculateRequestPrice(callbackGasLimit, tx.gasprice),
+            msg.value >=
+                _calculateRequestPrice(
+                    callbackGasLimit,
+                    tx.gasprice,
+                    activatedOperatorsLength
+                ),
             InsufficientAmount()
         );
         unchecked {
@@ -61,7 +81,6 @@ contract Commit2RevealDRB is
         s_activatedOperatorsAtRound[
             round
         ] = activatedOperators = s_activatedOperators;
-        uint256 activatedOperatorsLength = activatedOperators.length;
         uint256 i = 1;
         mapping(address => uint256)
             storage activatedOperatorOrderAtRound = s_activatedOperatorOrderAtRound[
@@ -83,15 +102,18 @@ contract Commit2RevealDRB is
 
     function _calculateRequestPrice(
         uint256 callbackGasLimit,
-        uint256 gasPrice
+        uint256 gasPrice,
+        uint256 numOfOperators
     ) private view returns (uint256) {
+        // submitRoot l2GasUsed = 47216
+        // generateRandomNumber l2GasUsed = 21118.97⋅N + 87117.53
         return
             (gasPrice *
-                (callbackGasLimit + MERKLEROOTSUB_RANDOMNUMGENERATE_GASUSED)) +
+                (callbackGasLimit + (21119 * numOfOperators + 134334))) +
             s_flatFee +
             _getL1CostWeiForcalldataSize2(
                 MERKLEROOTSUB_CALLDATA_BYTES_SIZE,
-                RANDOMNUMGENERATE_CALLDATA_BYTES_SIZE
+                292 + (128 * numOfOperators)
             );
     }
 
@@ -207,6 +229,49 @@ contract Commit2RevealDRB is
                 InvalidSignature()
             );
         }
+        // ** create random number
+        bytes32[] memory secretsInRevealOrder = new bytes32[](secretsLength);
+        for (uint256 i; i < secretsLength; i = unchecked_inc(i))
+            secretsInRevealOrder[i] = secrets[revealOrders[i]];
+
+        uint256 randomNumber;
+        roundInfo.randomNumber = randomNumber = uint256(
+            keccak256(abi.encodePacked(secretsInRevealOrder))
+        );
+        RequestInfo storage requestInfo = s_requestInfo[round];
+        bool success = _call(
+            requestInfo.consumer,
+            abi.encodeWithSelector(
+                DRBConsumerBase.rawFulfillRandomWords.selector,
+                round,
+                randomNumber
+            ),
+            requestInfo.callbackGasLimit
+        );
+        roundInfo.fulfillSucceeded = success;
+        address[]
+            storage activatedOperatorsAtRound = s_activatedOperatorsAtRound[
+                round
+            ];
+        uint256 cost = requestInfo.cost;
+        uint256 activatedOperatorsLength = activatedOperatorsAtRound.length;
+        uint256 costWithReward = cost + (cost / (activatedOperatorsLength - 1));
+        uint256 activationThreshold = s_activationThreshold;
+
+        for (
+            uint256 i = 1;
+            i < activatedOperatorsLength;
+            i = unchecked_inc(i)
+        ) {
+            address operator = activatedOperatorsAtRound[i];
+            _checkAndActivateIfNotForceDeactivated(
+                s_activatedOperatorOrder[operator],
+                s_depositAmount[operator] += costWithReward,
+                activationThreshold,
+                operator
+            );
+        }
+        emit RandomNumberGenerated(round, randomNumber);
     }
 
     function generateRandomNumber1(
@@ -290,7 +355,7 @@ contract Commit2RevealDRB is
             keccak256(abi.encodePacked(secretsInRevealOrder))
         );
         RequestInfo storage requestInfo = s_requestInfo[round];
-        bool success = _call(
+        bool success = _call2(
             requestInfo.consumer,
             abi.encodeWithSelector(
                 DRBConsumerBase.rawFulfillRandomWords.selector,
@@ -405,7 +470,7 @@ contract Commit2RevealDRB is
             keccak256(abi.encodePacked(secretsInRevealOrder))
         );
         RequestInfo storage requestInfo = s_requestInfo[round];
-        bool success = _call(
+        bool success = _call2(
             requestInfo.consumer,
             abi.encodeWithSelector(
                 DRBConsumerBase.rawFulfillRandomWords.selector,
@@ -626,6 +691,40 @@ contract Commit2RevealDRB is
                 0,
                 0
             )
+        }
+        return success;
+    }
+
+    function _call2(
+        address target,
+        bytes memory data,
+        uint256 callbackGasLimit
+    ) private returns (bool success) {
+        assembly {
+            let g := gas()
+            // Compute g -= GAS_FOR_CALL_EXACT_CHECK and check for underflow
+            // The gas actually passed to the callee is min(gasAmount, 63//64*gas available)
+            // We want to ensure that we revert if gasAmount > 63//64*gas available
+            // as we do not want to provide them with less, however that check itself costs
+            // gas. GAS_FOR_CALL_EXACT_CHECK ensures we have at least enough gas to be able to revert
+            // if gasAmount > 63//64*gas available.
+            if lt(g, GAS_FOR_CALL_EXACT_CHECK) {
+                revert(0, 0)
+            }
+            g := sub(g, GAS_FOR_CALL_EXACT_CHECK)
+            // if g - g//64 <= gas
+            // we subtract g//64 because of EIP-150
+            g := sub(g, div(g, 64))
+            if iszero(gt(sub(g, div(g, 64)), callbackGasLimit)) {
+                revert(0, 0)
+            }
+            // solidity calls check that a contract actually exists at the destination, so we do the same
+            if iszero(extcodesize(target)) {
+                revert(0, 0)
+            }
+            // call and return whether we succeeded. ignore return data
+            // call(gas, addr, value, argsOffset,argsLength,retOffset,retLength)
+            success := mload(add(data, 0x20))
         }
         return success;
     }

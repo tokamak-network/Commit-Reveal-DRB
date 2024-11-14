@@ -64,13 +64,15 @@ contract NetworkHelperConfig is Script {
             REQUEST_REFUND_CALLDATA_BYTES_SIZE
         );
 
-        uint256 activationThreshold = fixedL2GasPrice *
-            (ONECOMMIT_ONEREVEAL_GASUSED +
-                MAX_CALLBACK_GAS_LIMIT +
-                MAX_REQUEST_REFUND_GASUSED) +
-            l1GasCost +
-            compensateAmount +
-            flatFee;
+        // uint256 activationThreshold = fixedL2GasPrice *
+        //     (ONECOMMIT_ONEREVEAL_GASUSED +
+        //         MAX_CALLBACK_GAS_LIMIT +
+        //         MAX_REQUEST_REFUND_GASUSED) +
+        //     l1GasCost +
+        //     compensateAmount +
+        //     flatFee;
+        uint256 activationThreshold = 0.001 ether;
+
         return
             NetworkConfig({
                 activationThreshold: activationThreshold,
@@ -83,15 +85,16 @@ contract NetworkHelperConfig is Script {
             });
     }
 
-    function getAnvilConfig() public view returns (NetworkConfig memory) {
-        uint256 flatFee = 0.001 ether;
+    function getAnvilConfig() public pure returns (NetworkConfig memory) {
+        uint256 flatFee = 0.00025 ether;
         uint256 compensateAmount = 0.0005 ether;
-        uint256 activationThreshold = tx.gasprice *
-            (ONECOMMIT_ONEREVEAL_GASUSED +
-                MAX_CALLBACK_GAS_LIMIT +
-                MAX_REQUEST_REFUND_GASUSED) +
-            compensateAmount +
-            flatFee;
+        // uint256 activationThreshold = tx.gasprice *
+        //     (ONECOMMIT_ONEREVEAL_GASUSED +
+        //         MAX_CALLBACK_GAS_LIMIT +
+        //         MAX_REQUEST_REFUND_GASUSED) +
+        //     compensateAmount +
+        //     flatFee;
+        uint256 activationThreshold = 0.01 ether;
 
         return
             NetworkConfig({
