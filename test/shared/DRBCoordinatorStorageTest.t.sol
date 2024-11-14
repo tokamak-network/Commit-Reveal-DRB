@@ -1,4 +1,4 @@
-pragma solidity ^0.8.26;
+pragma solidity ^0.8.28;
 
 import {DRBCoordinator} from "../../src/DRBCoordinator.sol";
 import {BaseTest} from "../shared/BaseTest.t.sol";

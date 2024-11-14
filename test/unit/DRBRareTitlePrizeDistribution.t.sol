@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.26;
+pragma solidity 0.8.28;
 
 import {RareTitlePrizeDistribution} from "../../src/test/DRBRareTitlePrizeDistribution.sol";
 import {MockTON} from "test/shared/MockTON.sol";

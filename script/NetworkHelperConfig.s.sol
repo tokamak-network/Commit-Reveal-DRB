@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.26;
+pragma solidity ^0.8.28;
 
 import {Script, console2} from "forge-std/Script.sol";
 import {IOVM_GasPriceOracle} from "../src/interfaces/IOVM_GasPriceOracle.sol";
