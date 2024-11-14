@@ -2,6 +2,11 @@
 pragma solidity ^0.8.28;
 
 contract Commit2RevealDRBStorage {
+    struct Message {
+        uint256 round;
+        bytes32 cv;
+    }
+
     // * Type Declarations
     struct RequestInfo {
         address consumer;
@@ -28,6 +33,9 @@ contract Commit2RevealDRBStorage {
     error RevealNotInAscendingOrder();
     error NotActivatedOperatorForThisRound();
     error MerkleVerificationFailed();
+    error InvalidSignatureS();
+    error InvalidSignature();
+    error InvalidSignatureLength();
 
     // * Events
     event Activated(address operator);
@@ -60,6 +68,8 @@ contract Commit2RevealDRBStorage {
     uint256 internal constant RANDOMNUMGENERATE_CALLDATA_BYTES_SIZE = 278;
     uint256 internal constant MAX_CALLBACK_GAS_LIMIT = 2500000;
     uint256 internal constant GAS_FOR_CALL_EXACT_CHECK = 5_000;
+    bytes32 internal constant MESSAGE_TYPEHASH =
+        keccak256("Message(uint256 round,bytes32 cv)");
 
     // ** getter
     // s_activatedOperators
