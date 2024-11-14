@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {ReentrancyGuardTransient} from "openzeppelin-contracts/contracts/utils/ReentrancyGuardTransient.sol";
+import {ReentrancyGuard} from "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 import {OptimismL1Fees} from "./OptimismL1Fees.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {DRBConsumerBase} from "./DRBConsumerBase.sol";
@@ -11,7 +11,7 @@ import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 
 contract Commit2RevealDRB is
     EIP712,
-    ReentrancyGuardTransient,
+    ReentrancyGuard,
     OptimismL1Fees,
     Commit2RevealDRBStorage
 {
@@ -274,238 +274,6 @@ contract Commit2RevealDRB is
         emit RandomNumberGenerated(round, randomNumber);
     }
 
-    function generateRandomNumber1(
-        uint256 round,
-        bytes32[] calldata secrets,
-        uint256[] calldata revealOrders,
-        uint8[] calldata vs,
-        bytes32[] calldata rs,
-        bytes32[] calldata ss
-    ) external nonReentrant {
-        uint256 secretsLength = secrets.length;
-
-        // hash one time
-        bytes32[] memory cos = new bytes32[](secretsLength);
-        // hash two time
-        uint256[] memory cvs = new uint256[](secretsLength);
-
-        for (uint256 i; i < secretsLength; i = unchecked_inc(i)) {
-            cos[i] = keccak256(abi.encodePacked(secrets[i]));
-            cvs[i] = uint256(keccak256(abi.encodePacked(cos[i])));
-        }
-        uint256 rv = uint256(keccak256(abi.encodePacked(cos)));
-        // ** reveal order verification
-        for (uint256 i = 1; i < secretsLength; i = unchecked_inc(i))
-            require(
-                diff(rv, cvs[revealOrders[unchecked_dec(i)]]) <
-                    diff(rv, cvs[revealOrders[i]]),
-                RevealNotInAscendingOrder()
-            );
-        bytes32[] memory leaves;
-        assembly ("memory-safe") {
-            leaves := cvs
-        }
-
-        RoundInfo storage roundInfo = s_roundInfo[round];
-        // ** verify merkle root
-        require(
-            createMerkleRoot(leaves) == roundInfo.merkleRoot,
-            MerkleVerificationFailed()
-        );
-
-        // ** verify signer
-        mapping(address => uint256)
-            storage activatedOperatorOrderAtRound = s_activatedOperatorOrderAtRound[
-                round
-            ];
-        for (uint256 i; i < secretsLength; i = unchecked_inc(i)) {
-            // signature malleability prevention
-            require(
-                ss[i] <=
-                    0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0,
-                InvalidSignatureS()
-            );
-            require(
-                activatedOperatorOrderAtRound[
-                    ecrecover(
-                        _hashTypedDataV4(
-                            keccak256(
-                                abi.encode(
-                                    MESSAGE_TYPEHASH,
-                                    Message({round: round, cv: leaves[i]})
-                                )
-                            )
-                        ),
-                        vs[i],
-                        rs[i],
-                        ss[i]
-                    )
-                ] > 0,
-                InvalidSignature()
-            );
-        }
-
-        // ** create random number
-        bytes32[] memory secretsInRevealOrder = new bytes32[](secretsLength);
-        for (uint256 i; i < secretsLength; i = unchecked_inc(i))
-            secretsInRevealOrder[i] = secrets[revealOrders[i]];
-
-        uint256 randomNumber;
-        roundInfo.randomNumber = randomNumber = uint256(
-            keccak256(abi.encodePacked(secretsInRevealOrder))
-        );
-        RequestInfo storage requestInfo = s_requestInfo[round];
-        bool success = _call2(
-            requestInfo.consumer,
-            abi.encodeWithSelector(
-                DRBConsumerBase.rawFulfillRandomWords.selector,
-                round,
-                randomNumber
-            ),
-            requestInfo.callbackGasLimit
-        );
-        roundInfo.fulfillSucceeded = success;
-        address[]
-            storage activatedOperatorsAtRound = s_activatedOperatorsAtRound[
-                round
-            ];
-        uint256 cost = requestInfo.cost;
-        uint256 activatedOperatorsLength = activatedOperatorsAtRound.length;
-        uint256 costWithReward = cost + (cost / (activatedOperatorsLength - 1));
-        uint256 activationThreshold = s_activationThreshold;
-
-        for (
-            uint256 i = 1;
-            i < activatedOperatorsLength;
-            i = unchecked_inc(i)
-        ) {
-            address operator = activatedOperatorsAtRound[i];
-            _checkAndActivateIfNotForceDeactivated(
-                s_activatedOperatorOrder[operator],
-                s_depositAmount[operator] += costWithReward,
-                activationThreshold,
-                operator
-            );
-        }
-        emit RandomNumberGenerated(round, randomNumber);
-    }
-
-    function generateRandomNumber2(
-        uint256 round,
-        bytes32[] calldata secrets,
-        uint8[] calldata vs,
-        bytes32[] calldata rs,
-        bytes32[] calldata ss
-    ) external nonReentrant {
-        uint256 secretsLength = secrets.length;
-
-        bytes32[] memory cos = new bytes32[](secretsLength);
-        uint256[] memory cvs = new uint256[](secretsLength);
-
-        for (uint256 i; i < secretsLength; i = unchecked_inc(i)) {
-            cos[i] = keccak256(abi.encodePacked(secrets[i]));
-            cvs[i] = uint256(keccak256(abi.encodePacked(cos[i])));
-        }
-        uint256 rv = uint256(keccak256(abi.encodePacked(cos)));
-
-        // ** determine reveal order
-        uint256[] memory diffs = new uint256[](secretsLength);
-        uint256[] memory revealOrders = new uint256[](secretsLength);
-        for (uint256 i = 0; i < secretsLength; i = unchecked_inc(i)) {
-            diffs[i] = diff(rv, cvs[i]);
-            revealOrders[i] = i;
-        }
-        Sort.sort(diffs, revealOrders);
-
-        bytes32[] memory leaves;
-        assembly ("memory-safe") {
-            leaves := cvs
-        }
-        RoundInfo storage roundInfo = s_roundInfo[round];
-        // ** verify merkle root
-        require(
-            createMerkleRoot(leaves) == roundInfo.merkleRoot,
-            MerkleVerificationFailed()
-        );
-
-        // ** verify signer
-        mapping(address => uint256)
-            storage activatedOperatorOrderAtRound = s_activatedOperatorOrderAtRound[
-                round
-            ];
-        for (uint256 i; i < secretsLength; i = unchecked_inc(i)) {
-            // signature malleability prevention
-            require(
-                ss[i] <=
-                    0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5D576E7357A4501DDFE92F46681B20A0,
-                InvalidSignatureS()
-            );
-            require(
-                activatedOperatorOrderAtRound[
-                    ecrecover(
-                        _hashTypedDataV4(
-                            keccak256(
-                                abi.encode(
-                                    MESSAGE_TYPEHASH,
-                                    Message({round: round, cv: leaves[i]})
-                                )
-                            )
-                        ),
-                        vs[i],
-                        rs[i],
-                        ss[i]
-                    )
-                ] > 0,
-                InvalidSignature()
-            );
-        }
-
-        // ** create random number
-        bytes32[] memory secretsInRevealOrder = new bytes32[](secretsLength);
-        for (uint256 i; i < secretsLength; i = unchecked_inc(i))
-            secretsInRevealOrder[i] = secrets[revealOrders[i]];
-
-        uint256 randomNumber;
-        roundInfo.randomNumber = randomNumber = uint256(
-            keccak256(abi.encodePacked(secretsInRevealOrder))
-        );
-        RequestInfo storage requestInfo = s_requestInfo[round];
-        bool success = _call2(
-            requestInfo.consumer,
-            abi.encodeWithSelector(
-                DRBConsumerBase.rawFulfillRandomWords.selector,
-                round,
-                randomNumber
-            ),
-            requestInfo.callbackGasLimit
-        );
-        roundInfo.fulfillSucceeded = success;
-
-        address[]
-            storage activatedOperatorsAtRound = s_activatedOperatorsAtRound[
-                round
-            ];
-        uint256 cost = requestInfo.cost;
-        uint256 activatedOperatorsLength = activatedOperatorsAtRound.length;
-        uint256 costWithReward = cost + (cost / (activatedOperatorsLength - 1));
-        uint256 activationThreshold = s_activationThreshold;
-
-        for (
-            uint256 i = 1;
-            i < activatedOperatorsLength;
-            i = unchecked_inc(i)
-        ) {
-            address operator = activatedOperatorsAtRound[i];
-            _checkAndActivateIfNotForceDeactivated(
-                s_activatedOperatorOrder[operator],
-                s_depositAmount[operator] += costWithReward,
-                activationThreshold,
-                operator
-            );
-        }
-        emit RandomNumberGenerated(round, randomNumber);
-    }
-
     function getMessageHash(
         uint256 round,
         bytes32 cv
@@ -519,6 +287,12 @@ contract Commit2RevealDRB is
                     )
                 )
             );
+    }
+
+    function getMerkleRoot(
+        bytes32[] memory leaves
+    ) external pure returns (bytes32) {
+        return createMerkleRoot(leaves);
     }
 
     function createMerkleRoot(

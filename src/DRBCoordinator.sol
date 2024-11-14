@@ -3,7 +3,7 @@ pragma solidity ^0.8.28;
 
 import {DRBCoordinatorStorage} from "./DRBCoordinatorStorage.sol";
 // import {ReentrancyGuard} from "./utils/ReentrancyGuard.sol";
-import {ReentrancyGuardTransient} from "openzeppelin-contracts/contracts/utils/ReentrancyGuardTransient.sol";
+import {ReentrancyGuard} from "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {OptimismL1Fees} from "./OptimismL1Fees.sol";
 import {DRBConsumerBase} from "./DRBConsumerBase.sol";
@@ -16,7 +16,7 @@ import {console2} from "forge-std/Test.sol";
 
 contract DRBCoordinator is
     Ownable,
-    ReentrancyGuardTransient,
+    ReentrancyGuard,
     IDRBCoordinator,
     DRBCoordinatorStorage,
     OptimismL1Fees

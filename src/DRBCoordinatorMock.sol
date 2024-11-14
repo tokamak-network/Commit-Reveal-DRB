@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-// import {ReentrancyGuardTransient} from "./utils/ReentrancyGuardTransient.sol";
+// import {ReentrancyGuard} from "./utils/ReentrancyGuard.sol";
 // import {OptimismL1Fees} from "./OptimismL1Fees.sol";
 // import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 // import {DRBConsumerBase} from "./DRBConsumerBase.sol";
@@ -11,7 +11,7 @@ pragma solidity ^0.8.28;
 // contract DRBCoordinatorMock is
 //     IDRBCoordinator,
 //     Ownable,
-//     ReentrancyGuardTransient,
+//     ReentrancyGuard,
 //     OptimismL1Fees
 // {
 //     struct ValuesAtRequestId {

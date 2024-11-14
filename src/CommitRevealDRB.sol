@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
-import {ReentrancyGuardTransient} from "openzeppelin-contracts/contracts/utils/ReentrancyGuardTransient.sol";
+import {ReentrancyGuard} from "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 import {CommitRevealDRBStorage} from "./CommitRevealDRBStorage.sol";
 import {OptimismL1Fees} from "./OptimismL1Fees.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {DRBConsumerBase} from "./DRBConsumerBase.sol";
 
 contract CommitRevealDRB is
-    ReentrancyGuardTransient,
+    ReentrancyGuard,
     OptimismL1Fees,
     CommitRevealDRBStorage
 {

@@ -53,7 +53,7 @@ contract Commit2RevealDRBStorage {
     mapping(address operator => uint256) public s_activatedOperatorOrder;
     mapping(uint256 round => RequestInfo requestInfo) public s_requestInfo;
     mapping(uint256 round => address[] activatedOperators)
-        public s_activatedOperatorsAtRound;
+        internal s_activatedOperatorsAtRound;
     mapping(uint256 round => mapping(address operator => uint256))
         public s_activatedOperatorOrderAtRound;
     // ** internal
@@ -75,5 +75,22 @@ contract Commit2RevealDRBStorage {
     // s_activatedOperators
     function getActivatedOperators() external view returns (address[] memory) {
         return s_activatedOperators;
+    }
+
+    function getActivatedOperatorsLength() external view returns (uint256) {
+        return s_activatedOperators.length - 1;
+    }
+
+    // s_activatedOperatorsAtRound
+    function getActivatedOperatorsAtRound(
+        uint256 round
+    ) external view returns (address[] memory) {
+        return s_activatedOperatorsAtRound[round];
+    }
+
+    function getActivatedOperatorsAtRoundLength(
+        uint256 round
+    ) external view returns (uint256) {
+        return s_activatedOperatorsAtRound[round].length - 1;
     }
 }
