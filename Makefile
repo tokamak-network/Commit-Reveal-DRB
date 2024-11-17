@@ -73,6 +73,9 @@ deploy-drb:
 deploy-commit2reveal:
 	@forge script script/DeployCommit2Reveal.s.sol:DeployCommit2Reveal $(NETWORK_ARGS)
 
+deploy-commit2-reveal2:
+	@forge script script/DeployCommit2Reveal2.s.sol:DeployCommit2Reveal2 $(NETWORK_ARGS)
+
 deploy-consumer-example:
 	@forge script script/DeployConsumerExample.s.sol:DeployConsumerExample $(NETWORK_ARGS)
 
@@ -156,12 +159,16 @@ verify-commit2reveal:
 	@CONSTRUCTOR_ARGS=$$(cast abi-encode "constructor(uint256,uint256,uint256,string,string)" 1000000000000000 10000000000000 10 "Tokamak DRB" "1") \
 	forge verify-contract --constructor-args CONSTRUCTOR_ARGS --verifier blockscout --verifier-url $(TITAN_SEPOLIA_EXPLORER) --rpc-url $(TITAN_SEPOLIA_URL) $(ADDRESS) Commit2RevealDRB
 
+verify-commit2reveal2:
+	@CONSTRUCTOR_ARGS=$$(cast abi-encode "constructor(uint256,uint256,uint256,string,string)" 1000000000000000 10000000000000 10 "Tokamak DRB" "1") \
+	forge verify-contract --constructor-args CONSTRUCTOR_ARGS --verifier blockscout --verifier-url $(TITAN_SEPOLIA_EXPLORER) --rpc-url $(TITAN_SEPOLIA_URL) $(ADDRESS) Commit2Reveal2DRB
+
 verify-raretitle:
 	@CONSTRUCTOR_ARGS=$$(cast abi-encode "constructor(address,uint256,address,uint256)" 0x78ACCa4E8269E6082D1C78B7386366feb7865fb4 86400 0x7c6b91D9Be155A6Db01f749217d76fF02A7227F2 100000000000000000000) \
 	forge verify-contract --constructor-args CONSTRUCTOR_ARGS --verifier blockscout --verifier-url $(TITAN_EXPLORER) --rpc-url $(TITAN_RPC_URL) $(ADDRESS) RareTitle
 
 verify-consumer-example:
-	@CONSTRUCTOR_ARGS=$$(cast abi-encode "constructor(address)" 0x7b470a4579ecA75aF7895EFC0a5AAB540DfB38Cd) \
+	@CONSTRUCTOR_ARGS=$$(cast abi-encode "constructor(address)" 0x0EBD097CbD911E5A5DC401D7C91F71B47f0ee178) \
 	forge verify-contract --constructor-args CONSTRUCTOR_ARGS --verifier blockscout --verifier-url $(TITAN_SEPOLIA_EXPLORER) --rpc-url $(TITAN_SEPOLIA_URL) $(ADDRESS) ConsumerExample
 
 

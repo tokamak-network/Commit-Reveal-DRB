@@ -3,12 +3,12 @@ pragma solidity 0.8.28;
 
 import {Script, console2} from "forge-std/Script.sol";
 
-import {Commit2RevealDRB} from "../src/Commit2RevealDRB.sol";
+import {Commit2Reveal2DRB} from "../src/Commit2Reveal2DRB.sol";
 import {ConsumerExample} from "../src/ConsumerExample.sol";
 import {console2} from "forge-std/Test.sol";
 import {NetworkHelperConfig} from "./NetworkHelperConfig.s.sol";
 
-contract DeployCommit2Reveal is Script {
+contract DeployCommit2Reveal2 is Script {
     uint256 s_maxActivatedOperators = 10;
     string public name = "Tokamak DRB";
     string public version = "1";
@@ -17,7 +17,7 @@ contract DeployCommit2Reveal is Script {
 
     function deployCommit2RevealUsingConfig()
         public
-        returns (Commit2RevealDRB commit2Reveal)
+        returns (Commit2Reveal2DRB commit2Reveal2)
     {
         NetworkHelperConfig networkHelperConfig = new NetworkHelperConfig();
         (
@@ -30,7 +30,7 @@ contract DeployCommit2Reveal is Script {
 
         ) = networkHelperConfig.activeNetworkConfig();
         console2.log("activationThreshold:", activationThreshold);
-        commit2Reveal = deployCommit2Reveal(
+        commit2Reveal2 = deployCommit2Reveal(
             activationThreshold,
             flatFee,
             l1GasCostMode
@@ -41,9 +41,9 @@ contract DeployCommit2Reveal is Script {
         uint256 activationThreshold,
         uint256 flatFee,
         uint256 l1GasCostMode
-    ) public returns (Commit2RevealDRB commit2Reveal) {
+    ) public returns (Commit2Reveal2DRB commit2Reveal2) {
         vm.startBroadcast();
-        commit2Reveal = new Commit2RevealDRB(
+        commit2Reveal2 = new Commit2Reveal2DRB(
             activationThreshold,
             flatFee,
             s_maxActivatedOperators,
@@ -51,34 +51,34 @@ contract DeployCommit2Reveal is Script {
             version
         );
         vm.stopBroadcast();
-        (uint8 mode, ) = commit2Reveal.getL1FeeCalculationMode();
+        (uint8 mode, ) = commit2Reveal2.getL1FeeCalculationMode();
         if (uint256(mode) != l1GasCostMode) {
             vm.startBroadcast();
-            commit2Reveal.setL1FeeCalculation(uint8(l1GasCostMode), 100);
+            commit2Reveal2.setL1FeeCalculation(uint8(l1GasCostMode), 100);
             vm.stopBroadcast();
             console2.log("Set L1 fee calculation mode to:", l1GasCostMode);
         }
     }
 
     function deployConsumerExample(
-        Commit2RevealDRB commit2Reveal
+        Commit2Reveal2DRB commit2Reveal2
     ) public returns (ConsumerExample consumerExample) {
         vm.startBroadcast();
-        consumerExample = new ConsumerExample(address(commit2Reveal));
+        consumerExample = new ConsumerExample(address(commit2Reveal2));
         vm.stopBroadcast();
     }
 
     function run()
         public
         returns (
-            Commit2RevealDRB commit2Reveal,
+            Commit2Reveal2DRB commit2Reveal2,
             ConsumerExample consumerExample
         )
     {
-        commit2Reveal = deployCommit2RevealUsingConfig();
-        console2.log("Deployed Commit2Reveal at:", address(commit2Reveal));
+        commit2Reveal2 = deployCommit2RevealUsingConfig();
+        console2.log("Deployed Commit2Reveal at:", address(commit2Reveal2));
 
-        consumerExample = deployConsumerExample(commit2Reveal);
+        consumerExample = deployConsumerExample(commit2Reveal2);
         console2.log("Deployed ConsumerExample at:", address(consumerExample));
     }
 }
