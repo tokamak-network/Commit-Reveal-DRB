@@ -9,12 +9,12 @@ contract DeployConsumerExample is Script {
     error DRBCoordinatorNotDeployed();
 
     function run() public {
-        address drbCoordinator = DevOpsTools.get_most_recent_deployment(
-            "DRBCoordinator",
+        address commit2reveal2 = DevOpsTools.get_most_recent_deployment(
+            "Commit2Reveal2DRB",
             block.chainid
         );
         vm.startBroadcast();
-        ConsumerExample consumer = new ConsumerExample(drbCoordinator);
+        ConsumerExample consumer = new ConsumerExample(commit2reveal2);
         vm.stopBroadcast();
         console2.log("Deployed ConsumerExample at:", address(consumer));
     }

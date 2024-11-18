@@ -168,7 +168,7 @@ verify-raretitle:
 	forge verify-contract --constructor-args CONSTRUCTOR_ARGS --verifier blockscout --verifier-url $(TITAN_EXPLORER) --rpc-url $(TITAN_RPC_URL) $(ADDRESS) RareTitle
 
 verify-consumer-example:
-	@CONSTRUCTOR_ARGS=$$(cast abi-encode "constructor(address)" 0x0EBD097CbD911E5A5DC401D7C91F71B47f0ee178) \
+	@CONSTRUCTOR_ARGS=$$(cast abi-encode "constructor(address)" $(DRB)) \
 	forge verify-contract --constructor-args CONSTRUCTOR_ARGS --verifier blockscout --verifier-url $(TITAN_SEPOLIA_EXPLORER) --rpc-url $(TITAN_SEPOLIA_URL) $(ADDRESS) ConsumerExample
 
 

@@ -4,7 +4,6 @@ pragma solidity 0.8.28;
 import {Script, console2} from "forge-std/Script.sol";
 
 import {Commit2Reveal2DRB} from "../src/Commit2Reveal2DRB.sol";
-import {ConsumerExample} from "../src/ConsumerExample.sol";
 import {console2} from "forge-std/Test.sol";
 import {NetworkHelperConfig} from "./NetworkHelperConfig.s.sol";
 
@@ -60,25 +59,8 @@ contract DeployCommit2Reveal2 is Script {
         }
     }
 
-    function deployConsumerExample(
-        Commit2Reveal2DRB commit2Reveal2
-    ) public returns (ConsumerExample consumerExample) {
-        vm.startBroadcast();
-        consumerExample = new ConsumerExample(address(commit2Reveal2));
-        vm.stopBroadcast();
-    }
-
-    function run()
-        public
-        returns (
-            Commit2Reveal2DRB commit2Reveal2,
-            ConsumerExample consumerExample
-        )
-    {
+    function run() public returns (Commit2Reveal2DRB commit2Reveal2) {
         commit2Reveal2 = deployCommit2RevealUsingConfig();
         console2.log("Deployed Commit2Reveal at:", address(commit2Reveal2));
-
-        consumerExample = deployConsumerExample(commit2Reveal2);
-        console2.log("Deployed ConsumerExample at:", address(consumerExample));
     }
 }
