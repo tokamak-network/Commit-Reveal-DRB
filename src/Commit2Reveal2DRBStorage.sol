@@ -42,6 +42,7 @@ contract Commit2Reveal2DRBStorage {
     event Activated(address operator);
     event DeActivated(address operator);
     event RandomNumberRequested(uint256 round, address[] activatedOperators);
+    event MerkleRootSubmitted(uint256 round, bytes32 merkleRoot);
     event RandomNumberGenerated(uint256 round, uint256 randomNumber);
 
     // * State Variables

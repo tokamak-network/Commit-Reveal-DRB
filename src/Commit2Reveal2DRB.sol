@@ -157,6 +157,7 @@ contract Commit2Reveal2DRB is
             NotActivatedOperatorForThisRound()
         );
         s_roundInfo[round].merkleRoot = merkleRoot;
+        emit MerkleRootSubmitted(round, merkleRoot);
     }
 
     function generateRandomNumber(
